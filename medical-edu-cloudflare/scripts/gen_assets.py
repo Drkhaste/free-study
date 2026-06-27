@@ -9,8 +9,11 @@ import json
 import os
 import sys
 
-STATIC_DIR = '/home/z/my-project/static'
-OUT_FILE = '/home/z/my-project/src/assets-bundle.ts'
+# Get the absolute path of the directory where this script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Set paths relative to the script directory
+STATIC_DIR = os.path.join(SCRIPT_DIR, '../static')
+OUT_FILE = os.path.join(SCRIPT_DIR, '../src/assets-bundle.ts')
 
 # text-based files
 TEXT_EXTS = {'.css', '.js', '.json', '.html', '.svg', '.txt', '.xml'}

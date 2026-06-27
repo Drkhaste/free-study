@@ -81,6 +81,7 @@ flashcardRoutes.post('/', async (c) => {
   const user = c.get('user')!;
   const body = await c.req.json().catch(() => ({} as any));
   if (!body.front || !body.back) return errorResponse('صورت و پشت کارت الزامی است', 400);
+  if (!body.topic_id) return errorResponse('انتخاب مبحث الزامی است', 400);
 
   const result = await c.env.DB.prepare(
     `INSERT INTO flashcards(user_id, project_id, topic_id, front, back, hint, tags, next_review_at)
@@ -88,7 +89,7 @@ flashcardRoutes.post('/', async (c) => {
   ).bind(
     user.id,
     body.project_id || null,
-    body.topic_id || null,
+    body.topic_id,
     body.front.trim(),
     body.back.trim(),
     body.hint?.trim() || null,
@@ -130,7 +131,8 @@ flashcardRoutes.post('/import-csv', async (c) => {
   const user = c.get('user')!;
   const body = await c.req.json().catch(() => ({} as any));
   const csvText: string = body.csv_text || '';
-  if (!csvText.trim()) return errorResponse('فایل CSV خالی است', 400);
+  if (!csvText.trim()) return errorResponse('فایل CSV یا متن وارد شده خالی است', 400);
+  if (!body.topic_id) return errorResponse('انتخاب مبحث الزامی است', 400);
 
   const parsed = parseFlashcardsCSV(csvText);
   if (parsed.cards.length === 0) return errorResponse({

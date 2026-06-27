@@ -1,0 +1,41 @@
+name = "medical-edu-app"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+compatibility_flags = ["nodejs_compat"]
+
+# متغیرهای محیطی - بعدا از طریق Dashboard یا `wrangler secret put` تنظیم میشن
+[vars]
+ENVIRONMENT = "production"
+
+# دیتابیس D1
+# بعد از اجرای `npx wrangler d1 create medical-edu-db`، ID واقعی رو جایگزین کنید
+[[d1_databases]]
+binding = "DB"
+database_name = "medical-edu-db"
+database_id = "00000000-0000-0000-0000-000000000000"  # ← بعد از ساخت دیتابیس این رو با ID واقعی عوض کنید
+
+# تنظیمات Cron برای ارسال روزانه تلگرام (هر روز ساعت 9:00 UTC)
+[triggers]
+crons = ["0 9 * * *"]
+
+# محدودیت‌ها
+[limits]
+cpu_ms = 50
+
+# Observability
+[observability]
+enabled = true
+
+# ============================================================
+# Static assets: فایل‌های static به صورت embedded در worker هستند
+# (به [site] config نیاز نداریم)
+#
+# بعد از deploy:
+# 1. secrets رو ست کنید:
+#    npx wrangler secret put JWT_SECRET
+#    npx wrangler secret put GEMINI_API_KEY      (یا از پنل تنظیمات)
+#    npx wrangler secret put TELEGRAM_BOT_TOKEN  (یا از پنل تنظیمات)
+#
+# 2. دیتابیس رو migrate کنید:
+#    npx wrangler d1 execute medical-edu-db --remote --file=src/db/schema.sql
+# ============================================================

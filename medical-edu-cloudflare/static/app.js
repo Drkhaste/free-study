@@ -838,7 +838,10 @@ Pages.topicView = async function(id) {
             <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10"/></svg>
             فلش‌کارت‌های این مبحث
           </h2>
-          <button onclick="addFlashcardModal(${t.project_id}, ${t.id})" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">➕ کارت جدید</button>
+          <div class="flex gap-2">
+            <button onclick="importCSV(${t.project_id}, ${t.id})" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">📥 ایمپورت CSV</button>
+            <button onclick="addFlashcardModal(${t.project_id}, ${t.id})" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">➕ کارت جدید</button>
+          </div>
         </div>
         <div id="topic-flashcards" class="space-y-6 max-w-2xl mx-auto">
           ${loadingCards(2)}
@@ -874,10 +877,15 @@ window.loadTopicFlashcards = async function(topicId) {
             </div>
           </div>
         </div>
-        <div class="flex grid grid-cols-3 gap-2 mt-3">
-          <button onclick="answerTopicCard(${c.id}, 'easy', event)" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
-          <button onclick="answerTopicCard(${c.id}, 'good', event)" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
-          <button onclick="answerTopicCard(${c.id}, 'again', event)" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
+        <div class="flex items-center gap-2 mt-3">
+          <div class="flex-1 grid grid-cols-3 gap-2">
+            <button onclick="answerTopicCard(${c.id}, 'easy', event)" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'good', event)" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'again', event)" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
+          </div>
+          <button onclick="deleteFlashcard(${c.id}, ${topicId})" class="p-2 text-slate-300 hover:text-red-500 transition-colors" title="حذف کارت">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
     `).join('');
@@ -1124,11 +1132,17 @@ Pages.flashcards = async function() {
             <div class="flex-1 min-w-0">
               <p class="font-medium mb-1">${escapeHtml(c.front)}</p>
               <p class="text-sm text-slate-500 line-clamp-2">${escapeHtml(c.back)}</p>
-              ${c.tags ? `<p class="text-xs text-slate-400 mt-2">${escapeHtml(c.tags)}</p>` : ''}
+              <div class="flex items-center gap-2 mt-2">
+                <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded">${escapeHtml(c.topic_title || 'بدون مبحث')}</span>
+                ${c.tags ? `<p class="text-xs text-slate-400">${escapeHtml(c.tags)}</p>` : ''}
+              </div>
             </div>
-            <div class="flex flex-col items-end gap-1 text-xs flex-shrink-0">
+            <div class="flex flex-col items-end gap-2 text-xs flex-shrink-0">
               <span class="px-2 py-0.5 ${c.next_review_at <= new Date().toISOString() ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'} rounded">مرور ${c.repetitions >= 3 ? '✓' : new Date(c.next_review_at).toLocaleDateString('fa-IR')}</span>
-              <button onclick="resetCard(${c.id})" class="text-slate-400 hover:text-brand-600 text-xs">ریست</button>
+              <div class="flex items-center gap-2">
+                <button onclick="resetCard(${c.id})" class="text-slate-400 hover:text-brand-600">ریست</button>
+                <button onclick="deleteFlashcard(${c.id})" class="text-slate-400 hover:text-red-500">حذف</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1158,8 +1172,16 @@ window.addFlashcardModal = function(projectId = null, topicId = null) {
         </button>
       </div>
       <form onsubmit="saveFlashcard(event)" class="space-y-4">
-        <input type="hidden" name="project_id" value="${projectId || ''}">
-        <input type="hidden" name="topic_id" value="${topicId || ''}">
+        ${(!projectId || !topicId) ? `
+        <div>
+          <label class="block text-sm font-medium mb-1.5">انتخاب مبحث (الزامی)</label>
+          <select name="topic_id" required id="modal-fc-topic-id" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
+            <option value="">در حال بارگذاری مباحث...</option>
+          </select>
+        </div>` : `
+        <input type="hidden" name="project_id" value="${projectId}">
+        <input type="hidden" name="topic_id" value="${topicId}">
+        `}
         <div>
           <label class="block text-sm font-medium mb-1.5">سوال / صورت کارت</label>
           <textarea name="front" required rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="مثلاً: تعریف نارسایی قلبی؟"></textarea>
@@ -1181,12 +1203,35 @@ window.addFlashcardModal = function(projectId = null, topicId = null) {
   `;
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  if (!projectId || !topicId) {
+    API.get('/api/topics?limit=200').then(data => {
+      const select = document.getElementById('modal-fc-topic-id');
+      if (select) {
+        if (!data.topics?.length) {
+          select.innerHTML = '<option value="">ابتدا یک مبحث بسازید</option>';
+        } else {
+          select.innerHTML = '<option value="">یک مبحث انتخاب کنید...</option>' +
+            data.topics.map(t => `<option value="${t.id}" data-project="${t.project_id}">${escapeHtml(t.title)} (${escapeHtml(t.project_title)})</option>`).join('');
+        }
+      }
+    });
+  }
 };
 
 window.saveFlashcard = async function(e) {
   e.preventDefault();
   const form = e.target;
-  const data = Object.fromEntries(new FormData(form));
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData);
+
+  // اگر مبحث از لیست انتخاب شده، project_id را از دیتا اتریبیوت بگیر
+  const topicSelect = document.getElementById('modal-fc-topic-id');
+  if (topicSelect && topicSelect.value) {
+    const selectedOption = topicSelect.options[topicSelect.selectedIndex];
+    data.project_id = selectedOption.dataset.project;
+  }
+
   try {
     await API.post('/api/flashcards', data);
     toast('فلش‌کارت ساخته شد ✓', 'success');
@@ -1199,32 +1244,48 @@ window.saveFlashcard = async function(e) {
 // ---- Import CSV — FIX: csvText در window scope ----
 window._csvText = '';
 
-window.importCSV = function() {
+window.importCSV = function(projectId = null, topicId = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl modal-mobile-full">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl modal-mobile-full overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold">ایمپورت فلش‌کارت از CSV</h3>
+        <h3 class="text-lg font-bold">ایمپورت فلش‌کارت (CSV)</h3>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-4">
+        ${(!projectId || !topicId) ? `
         <div>
-          <label class="block text-sm font-medium mb-1.5">فایل CSV را انتخاب کنید</label>
-          <input type="file" accept=".csv,text/csv" id="csv-file" class="block w-full text-sm text-slate-500 file:ml-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
+          <label class="block text-sm font-medium mb-1.5">انتخاب مبحث (الزامی)</label>
+          <select id="import-fc-topic-id" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+            <option value="">در حال بارگذاری مباحث...</option>
+          </select>
+        </div>` : ''}
+
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-brand-600">۱. آپلود فایل یا چسباندن متن</label>
+          <div class="space-y-3">
+            <input type="file" accept=".csv,text/csv" id="csv-file" class="block w-full text-sm text-slate-500 file:ml-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
+            <div class="relative">
+              <textarea id="csv-text-area" rows="5" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" placeholder="front,back,hint,tags\nسوال ۱,جواب ۱,راهنما,تگ\nسوال ۲,جواب ۲,,تگ"></textarea>
+              <div class="absolute top-2 left-2 text-[10px] text-slate-400">CSV Text</div>
+            </div>
+          </div>
         </div>
-        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-slate-500">
-          <p class="font-medium mb-1">فرمت ستون‌ها:</p>
-          <code class="block bg-slate-100 dark:bg-slate-800 p-2 rounded">front,back,hint,tags</code>
-          <p class="mt-1">ستون‌های front و back الزامی هستند. hint و tags اختیاری.</p>
-          <p class="mt-1">اگه هدر ندارید، ترتیب ستون‌ها به همین شکل در نظر گرفته میشه.</p>
+
+        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-[11px] text-slate-500 leading-relaxed">
+          <p class="font-bold mb-1">راهنمای فرمت:</p>
+          <p>ستون‌های <b>front</b> و <b>back</b> الزامی هستند.</p>
+          <p>ترتیب ستون‌ها: سوال، جواب، راهنما (اختیاری)، برچسب‌ها (اختیاری)</p>
         </div>
+
         <div id="csv-preview" class="hidden"></div>
+
         <div class="flex gap-2 pt-2">
-          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl">انصراف</button>
-          <button onclick="doImportCSV()" id="csv-import-btn" disabled class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl disabled:opacity-50">ایمپورت</button>
+          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm">انصراف</button>
+          <button onclick="doImportCSV(${projectId}, ${topicId})" id="csv-import-btn" disabled class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl disabled:opacity-50 text-sm font-bold">شروع ایمپورت</button>
         </div>
       </div>
     </div>
@@ -1234,41 +1295,80 @@ window.importCSV = function() {
 
   // reset
   window._csvText = '';
-  document.getElementById('csv-import-btn').disabled = true;
+  const importBtn = document.getElementById('csv-import-btn');
+  const textArea = document.getElementById('csv-text-area');
+  const fileInput = document.getElementById('csv-file');
 
-  document.getElementById('csv-file').addEventListener('change', async (e) => {
+  if (!projectId || !topicId) {
+    API.get('/api/topics?limit=200').then(data => {
+      const select = document.getElementById('import-fc-topic-id');
+      if (select) {
+        if (!data.topics?.length) select.innerHTML = '<option value="">ابتدا یک مبحث بسازید</option>';
+        else {
+          select.innerHTML = '<option value="">یک مبحث انتخاب کنید...</option>' +
+            data.topics.map(t => `<option value="${t.id}" data-project="${t.project_id}">${escapeHtml(t.title)}</option>`).join('');
+        }
+      }
+    });
+  }
+
+  const updatePreview = (text, source) => {
+    window._csvText = text;
+    if (!text.trim()) {
+      importBtn.disabled = true;
+      document.getElementById('csv-preview').classList.add('hidden');
+      return;
+    }
+    const lineCount = text.split('\n').filter(l => l.trim()).length;
+    document.getElementById('csv-preview').classList.remove('hidden');
+    document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/20 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> ${lineCount} ردیف داده شناسایی شد</div>`;
+    importBtn.disabled = false;
+  };
+
+  textArea.addEventListener('input', (e) => updatePreview(e.target.value, 'text'));
+
+  fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        window._csvText = event.target.result;
-        const lineCount = window._csvText.split('\n').filter(l => l.trim()).length;
-        document.getElementById('csv-preview').classList.remove('hidden');
-        document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">✓ ${lineCount} ردیف از فایل <b>${escapeHtml(file.name)}</b> خوانده شد</div>`;
-        document.getElementById('csv-import-btn').disabled = false;
-      };
-      reader.readAsText(file);
-    } catch (err) {
-      toast('خطا در خواندن فایل: ' + err.message, 'error');
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      textArea.value = event.target.result;
+      updatePreview(event.target.result, 'file');
+    };
+    reader.readAsText(file);
   });
 };
 
-window.doImportCSV = async function() {
-  if (!window._csvText) {
-    toast('ابتدا فایل را انتخاب کنید', 'error');
-    return;
+window.doImportCSV = async function(passedProjectId = null, passedTopicId = null) {
+  let topicId = passedTopicId;
+  let projectId = passedProjectId;
+
+  if (!topicId) {
+    const select = document.getElementById('import-fc-topic-id');
+    topicId = select?.value;
+    if (topicId) {
+      const selectedOption = select.options[select.selectedIndex];
+      projectId = selectedOption.dataset.project;
+    }
   }
+
+  if (!topicId) return toast('لطفاً یک مبحث انتخاب کنید', 'error');
+  if (!window._csvText.trim()) return toast('محتوای CSV خالی است', 'error');
+
   const btn = document.getElementById('csv-import-btn');
   if (!btn) return;
   btn.disabled = true;
   btn.innerHTML = '<span class="loader"></span> در حال ایمپورت...';
   try {
-    const res = await API.post('/api/flashcards/import-csv', { csv_text: window._csvText });
-    toast(`${res.imported} فلش‌کارت ایمپورت شد ✓`, 'success');
+    const res = await API.post('/api/flashcards/import-csv', {
+      csv_text: window._csvText,
+      topic_id: topicId,
+      project_id: projectId
+    });
+    toast(`${res.imported} فلش‌کارت با موفقیت ایمپورت شد ✓`, 'success');
     btn.closest('.fixed').remove();
     if (window._reloadFlashcards) window._reloadFlashcards();
+    if (topicId) window.loadTopicFlashcards(topicId);
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false;
@@ -1303,6 +1403,16 @@ window.generateNewTopicAI = async function(e) {
     btn.disabled = false;
     btn.innerHTML = orig;
   }
+};
+
+window.deleteFlashcard = async function(id, topicId = null) {
+  if (!confirm('آیا از حذف این فلش‌کارت اطمینان دارید؟')) return;
+  try {
+    await API.del(`/api/flashcards/${id}`);
+    toast('کارت حذف شد', 'info');
+    if (topicId) window.loadTopicFlashcards(topicId);
+    else if (window._reloadFlashcards) window._reloadFlashcards();
+  } catch (err) { toast(err.message, 'error'); }
 };
 
 window.resetCard = async function(id) {

@@ -32,10 +32,16 @@ flashcardRoutes.get('/', async (c) => {
   if (dueOnly) { where.push(`next_review_at <= datetime('now')`); }
   if (q) { where.push('(front LIKE ? OR back LIKE ?)'); binds.push(`%${q}%`, `%${q}%`); }
 
-  const sql = `SELECT * FROM flashcards WHERE ${where.join(' AND ')} ORDER BY next_review_at ASC, id DESC LIMIT ? OFFSET ?`;
-  const countSql = `SELECT COUNT(*) AS total FROM flashcards WHERE ${where.join(' AND ')}`;
+  const sql = `
+    SELECT f.*, t.title AS topic_title
+    FROM flashcards f
+    LEFT JOIN topics t ON t.id = f.topic_id
+    WHERE ${where.map(w => (w.includes('user_id') || w.includes('project_id') || w.includes('topic_id') || w.includes('tags') || w.includes('front') || w.includes('back')) ? 'f.'+w : w).join(' AND ')}
+    ORDER BY f.next_review_at ASC, f.id DESC LIMIT ? OFFSET ?
+  `;
+  const countSql = `SELECT COUNT(*) AS total FROM flashcards f WHERE ${where.map(w => (w.includes('user_id') || w.includes('project_id') || w.includes('topic_id') || w.includes('tags') || w.includes('front') || w.includes('back')) ? 'f.'+w : w).join(' AND ')}`;
 
-  const result = await c.env.DB.prepare(sql).bind(...binds, limit, offset).all<Flashcard>();
+  const result = await c.env.DB.prepare(sql).bind(...binds, limit, offset).all<Flashcard & { topic_title: string }>();
   const total = await c.env.DB.prepare(countSql).bind(...binds).first<{ total: number }>();
 
   return json({

@@ -621,6 +621,15 @@ Pages.projects = async function() {
   } catch (err) { toast(err.message, 'error'); }
 };
 
+window.deleteProject = async function(id) {
+  if (!confirm('آیا از حذف این پروژه و تمام مباحث آن اطمینان دارید؟ این عمل غیرقابل بازگشت است.')) return;
+  try {
+    await API.del(`/api/projects/${id}`);
+    toast('پروژه حذف شد', 'success');
+    navigate('/projects');
+  } catch (err) { toast(err.message, 'error'); }
+};
+
 window.openProjectModal = function(project = null) {
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#ef4444', '#14b8a6'];
   const modal = document.createElement('div');
@@ -704,7 +713,12 @@ Pages.projectView = async function(id) {
           <h1 class="text-lg md:text-2xl font-bold truncate">${escapeHtml(proj.project.title)}</h1>
           <p class="text-sm text-slate-500 line-clamp-1">${escapeHtml(proj.project.description || '')}</p>
         </div>
-        <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 flex-shrink-0">ویرایش</button>
+        <div class="flex items-center gap-2">
+          <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 flex-shrink-0">ویرایش</button>
+          <button onclick="deleteProject(${proj.project.id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg flex-shrink-0" title="حذف پروژه">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
       </div>
     `;
 
@@ -807,14 +821,97 @@ Pages.topicView = async function(id) {
           ${statusBadge(t.status)}
           <a href="/topics/${t.id}/edit" data-link class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700">ویرایش</a>
           ${t.status === 'draft' ? `<button onclick="publishTopic(${t.id})" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">انتشار در وبلاگ</button>` : `<a href="/blog/${t.slug}" class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg">مشاهده در وبلاگ</a>`}
+          <button onclick="deleteTopic(${t.id}, ${t.project_id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="حذف مبحث">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
       <div class="flex items-center gap-3 text-sm text-slate-400 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700 flex-wrap">
         <span>${t.word_count} کلمه</span>
         ${t.tags ? `<span>•</span><span>${escapeHtml(t.tags)}</span>` : ''}
       </div>
-      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700 mb-8">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+
+      <div class="mt-12">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold flex items-center gap-2">
+            <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10"/></svg>
+            فلش‌کارت‌های این مبحث
+          </h2>
+          <button onclick="addFlashcardModal(${t.project_id}, ${t.id})" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">➕ کارت جدید</button>
+        </div>
+        <div id="topic-flashcards" class="space-y-6 max-w-2xl mx-auto">
+          ${loadingCards(2)}
+        </div>
+      </div>
     `;
+    loadTopicFlashcards(t.id);
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.loadTopicFlashcards = async function(topicId) {
+  try {
+    const data = await API.get(`/api/flashcards?topic_id=${topicId}&limit=100`);
+    const container = document.getElementById('topic-flashcards');
+    if (!data.flashcards?.length) {
+      container.innerHTML = `<div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400">
+        <p>هنوز برای این مبحث فلش‌کارتی نساخته‌اید.</p>
+      </div>`;
+      return;
+    }
+    container.innerHTML = data.flashcards.map(c => `
+      <div class="topic-card-container">
+        <div class="flip-card" id="card-${c.id}" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner" style="min-height: 200px;">
+            <div class="flip-card-front bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer">
+              <span class="text-[10px] uppercase tracking-widest text-slate-400 mb-4 font-bold">سوال</span>
+              <p class="text-lg font-bold">${escapeHtml(c.front)}</p>
+              <div class="mt-6 text-[10px] text-brand-600 font-bold opacity-50">برای مشاهده پاسخ کلیک کنید</div>
+            </div>
+            <div class="flip-card-back bg-gradient-to-br from-brand-600 to-cyan-600 text-white rounded-2xl p-6 shadow-lg flex flex-col items-center justify-center text-center">
+              <span class="text-[10px] uppercase tracking-widest opacity-70 mb-4 font-bold">پاسخ</span>
+              <p class="text-lg font-medium">${escapeHtml(c.back)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex grid grid-cols-3 gap-2 mt-3">
+          <button onclick="answerTopicCard(${c.id}, 'easy', event)" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
+          <button onclick="answerTopicCard(${c.id}, 'good', event)" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
+          <button onclick="answerTopicCard(${c.id}, 'again', event)" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.answerTopicCard = async function(cardId, level, event) {
+  event.stopPropagation();
+  try {
+    // مپ کردن دکمه‌ها به سیستم SM-2 موجود
+    // بلد بودم (easy) -> 3 days (easy در SM-2 معمولا 4 روز است، ولی اینجا طبق درخواست ست میکنیم)
+    // نسبتا بلد بودم (good) -> 1 day
+    // بلد نبودم (again) -> immediate
+
+    // از آنجایی که SM-2 بکند پیچیده است، ما فعلاً از همان API استفاده میکنیم
+    // و یا در آینده میتوانیم یک API اختصاصی برای این حالت ۳ دکمه‌ای بسازیم.
+    // طبق درخواست کاربر: ۳ روز، ۱ روز و بلافاصله.
+
+    await API.post(`/api/review/quick-answer`, { card_id: cardId, level });
+    toast('ثبت شد', 'success');
+
+    // انیمیشن بصری کوچک برای تایید
+    const container = event.target.closest('.topic-card-container');
+    container.style.opacity = '0.5';
+    container.style.pointerEvents = 'none';
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.deleteTopic = async function(id, projectId) {
+  if (!confirm('آیا از حذف این مبحث اطمینان دارید؟')) return;
+  try {
+    await API.del(`/api/topics/${id}`);
+    toast('مبحث حذف شد', 'success');
+    navigate(`/projects/${projectId}`);
   } catch (err) { toast(err.message, 'error'); }
 };
 
@@ -1049,7 +1146,7 @@ Pages.flashcards = async function() {
 };
 
 // ---- Add flashcard (manual) ----
-window.addFlashcardModal = function() {
+window.addFlashcardModal = function(projectId = null, topicId = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
@@ -1061,6 +1158,8 @@ window.addFlashcardModal = function() {
         </button>
       </div>
       <form onsubmit="saveFlashcard(event)" class="space-y-4">
+        <input type="hidden" name="project_id" value="${projectId || ''}">
+        <input type="hidden" name="topic_id" value="${topicId || ''}">
         <div>
           <label class="block text-sm font-medium mb-1.5">سوال / صورت کارت</label>
           <textarea name="front" required rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="مثلاً: تعریف نارسایی قلبی؟"></textarea>
@@ -1086,12 +1185,14 @@ window.addFlashcardModal = function() {
 
 window.saveFlashcard = async function(e) {
   e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form));
   try {
     await API.post('/api/flashcards', data);
     toast('فلش‌کارت ساخته شد ✓', 'success');
-    e.target.closest('.fixed').remove();
+    form.closest('.fixed').remove();
     if (window._reloadFlashcards) window._reloadFlashcards();
+    if (data.topic_id) window.loadTopicFlashcards(data.topic_id);
   } catch (err) { toast(err.message, 'error'); }
 };
 
@@ -1172,6 +1273,35 @@ window.doImportCSV = async function() {
     toast(err.message, 'error');
     btn.disabled = false;
     btn.innerHTML = 'ایمپورت';
+  }
+};
+
+window.generateNewTopicAI = async function(e) {
+  e.preventDefault();
+  const projectId = document.getElementById('ai-project-id').value;
+  const title = document.getElementById('ai-topic-title').value.trim();
+  if (!projectId) return toast('لطفاً یک پروژه انتخاب کنید', 'error');
+  if (!title) return toast('عنوان الزامی است', 'error');
+
+  const btn = document.getElementById('ai-gen-btn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span> در حال تولید مبحث...';
+
+  try {
+    // 1. Create a draft topic first
+    const resTopic = await API.post('/api/topics', { project_id: projectId, title, status: 'draft' });
+    const topicId = resTopic.topic.id;
+
+    // 2. Generate content with AI
+    await API.post('/api/ai/generate-topic', { title, topic_id: topicId });
+
+    toast('مبحث با موفقیت تولید شد', 'success');
+    navigate(`/topics/${topicId}`);
+  } catch (err) {
+    toast(err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = orig;
   }
 };
 
@@ -1318,35 +1448,63 @@ window.answerCard = async function(button) {
 };
 
 // ---- AI page ----
-Pages.ai = function() {
+Pages.ai = async function() {
   document.getElementById('app').innerHTML = layout(`
     <h1 class="text-xl md:text-2xl font-bold mb-1 mt-8 md:mt-0">دستیار هوش مصنوعی</h1>
     <p class="text-slate-500 mb-6 text-sm">تولید محتوای آموزشی با Gemini</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <button onclick="navigate('/topics/new')" class="text-right bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
-        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-xl flex items-center justify-center mb-4">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
-        <h3 class="font-bold text-lg mb-1">تولید مبحث آموزشی</h3>
-        <p class="text-white/80 text-sm">یک مبحث کامل با ساختار استاندارد تولید کنید</p>
-      </button>
-      <a href="/settings" data-link class="text-right bg-gradient-to-br from-cyan-500 to-brand-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
-        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        </div>
-        <h3 class="font-bold text-lg mb-1">ویرایش پرامپت‌ها</h3>
-        <p class="text-white/80 text-sm">پرامپت‌های AI را در پنل تنظیمات سفارشی کنید</p>
-      </a>
-    </div>
+        <h3 class="font-bold text-lg mb-2">تولید مبحث جدید</h3>
+        <form onsubmit="generateNewTopicAI(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">انتخاب پروژه</label>
+            <select id="ai-project-id" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 text-sm">
+              <option value="">در حال بارگذاری پروژه‌ها...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">عنوان مبحث</label>
+            <input type="text" id="ai-topic-title" required placeholder="مثلاً: علائم دیابت نوع ۲" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 text-sm">
+          </div>
+          <button type="submit" id="ai-gen-btn" class="w-full py-2.5 bg-gradient-to-l from-purple-600 to-pink-600 text-white font-medium rounded-lg hover:shadow-lg transition-all text-sm">تولید با هوش مصنوعی</button>
+        </form>
+      </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
-      <h2 class="font-bold mb-4">لاگ‌های اخیر AI</h2>
-      <div id="ai-logs">${loadingCards(3)}</div>
+      <div class="space-y-4">
+        <a href="/settings" data-link class="flex items-center gap-4 p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all">
+          <div class="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold">تنظیم پرامپت‌ها</h3>
+            <p class="text-xs text-slate-400">سفارشی‌سازی نحوه پاسخگویی AI</p>
+          </div>
+        </a>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <h2 class="font-bold mb-4 text-sm">آخرین فعالیت‌ها</h2>
+          <div id="ai-logs" class="space-y-3">${loadingCards(3)}</div>
+        </div>
+      </div>
     </div>
   `);
 
-  API.get('/api/ai/logs?limit=10').then(data => {
+  // Load projects
+  API.get('/api/projects').then(data => {
+    const select = document.getElementById('ai-project-id');
+    if (!select) return;
+    if (!data.projects?.length) {
+      select.innerHTML = '<option value="">ابتدا یک پروژه بسازید</option>';
+      return;
+    }
+    select.innerHTML = data.projects.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
+  }).catch(() => {});
+
+  API.get('/api/ai/logs?limit=5').then(data => {
     document.getElementById('ai-logs').innerHTML = data.logs?.length ? data.logs.map(l => `
       <div class="py-2 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between gap-3">
         <div class="flex-1 min-w-0">

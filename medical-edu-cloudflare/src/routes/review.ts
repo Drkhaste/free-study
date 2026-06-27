@@ -103,6 +103,42 @@ reviewRoutes.post('/:session_id/end', async (c) => {
   });
 });
 
+// POST /api/review/quick-answer — مرور سریع با ۳ دکمه (۳ روز، ۱ روز، فوری)
+reviewRoutes.post('/quick-answer', async (c) => {
+  const user = c.get('user')!;
+  const body = await c.req.json().catch(() => ({} as any));
+  const cardId = parseInt(body.card_id, 10);
+  const level = body.level as 'easy' | 'good' | 'again'; // بلد بودم، نسبتا بلد بودم، بلد نبودم
+
+  if (!cardId || !level) return errorResponse('card_id and level are required', 400);
+
+  const card = await c.env.DB.prepare(`SELECT * FROM flashcards WHERE id=? AND user_id=?`).bind(cardId, user.id).first<Flashcard>();
+  if (!card) return errorResponse('کارت یافت نشد', 404);
+
+  // محاسبه دستی فواصل طبق درخواست کاربر
+  let interval = 0;
+  if (level === 'easy') interval = 3;
+  else if (level === 'good') interval = 1;
+  else interval = 0;
+
+  const nextReview = new Date();
+  nextReview.setDate(nextReview.getDate() + interval);
+  const nextReviewAt = nextReview.toISOString();
+
+  await c.env.DB.prepare(
+    `UPDATE flashcards SET
+      interval=?,
+      repetitions=repetitions + 1,
+      next_review_at=?,
+      last_reviewed_at=datetime('now'),
+      total_reviews=total_reviews + 1,
+      correct_reviews=correct_reviews + (case when ?='again' then 0 else 1 end)
+     WHERE id=?`
+  ).bind(interval, nextReviewAt, level, cardId).run();
+
+  return json({ ok: true, next_review_at: nextReviewAt });
+});
+
 // GET /api/review/history — تاریخچه‌ی مرورها
 reviewRoutes.get('/history', async (c) => {
   const user = c.get('user')!;

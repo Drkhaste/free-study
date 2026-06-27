@@ -12,7 +12,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "medical-edu-db"
-database_id = "00000000-0000-0000-0000-000000000000"  # ← بعد از ساخت دیتابیس این رو با ID واقعی عوض کنید
+database_id = "0aa7c6fc-2c7b-402c-9e29-3836cfd0cc45"  # ← بعد از ساخت دیتابیس این رو با ID واقعی عوض کنید
 
 # تنظیمات Cron برای ارسال روزانه تلگرام (هر روز ساعت 9:00 UTC)
 [triggers]

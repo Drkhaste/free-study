@@ -285,16 +285,32 @@ function layout(content) {
   const isAdmin = state.user?.role === 'admin';
   const initial = state.user?.display_name?.[0] || state.user?.username?.[0] || 'U';
   return `
-    <button onclick="window.toggleSidebar()" class="mobile-menu-btn md:hidden fixed top-4 right-4 z-40 w-11 h-11 bg-white dark:bg-slate-800 rounded-xl shadow-lg flex items-center justify-center border border-slate-200 dark:border-slate-700">
-      <svg class="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
+    <!-- Top Header for Mobile & Desktop -->
+    <header class="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-40 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between px-4">
+      <div class="flex items-center gap-3">
+        <button onclick="window.toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="md:hidden flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">پ</div>
+          <span class="font-bold text-sm">آکادمی پزشکی</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="window.openFontSettings()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all" title="تنظیمات متن">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-cyan-400 flex items-center justify-center text-white font-bold text-xs">${initial}</div>
+      </div>
+    </header>
 
     <!-- Overlay -->
-    <div onclick="window.closeSidebar()" class="sidebar-overlay md:hidden fixed inset-0 bg-black/50 z-20"></div>
+    <div onclick="window.closeSidebar()" class="sidebar-overlay fixed inset-0 bg-black/50 z-45 hidden"></div>
 
-    <div class="flex min-h-screen">
+    <div class="flex min-h-screen pt-16">
       <!-- Sidebar (RTL: right side) -->
-      <aside class="sidebar w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-30 flex flex-col">
+      <aside class="sidebar w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-50 flex flex-col">
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <a href="/dashboard" class="flex items-center gap-3" data-link>
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">پ</div>
@@ -313,7 +329,10 @@ function layout(content) {
           ${sidebarLink('/flashcards', 'فلش‌کارت‌ها', 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10')}
           ${sidebarLink('/review', 'مرور امروز', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z')}
           ${sidebarLink('/ai', 'دستیار هوش مصنوعی', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
-          ${sidebarLink('/blog', 'وبلاگ', 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253')}
+          <a href="/blog" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            <span>وبلاگ</span>
+          </a>
           ${isAdmin ? sidebarLink('/settings', 'تنظیمات', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z') : ''}
         </nav>
         <div class="p-3 border-t border-slate-100 dark:border-slate-700">
@@ -337,11 +356,6 @@ function layout(content) {
         </div>
       </main>
     </div>
-
-    <!-- Font settings button (floating) -->
-    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-    </button>
   `;
 }
 
@@ -411,9 +425,6 @@ Pages.login = function() {
         <p class="text-center text-xs text-slate-400 mt-6">با ورود، شرایط استفاده را می‌پذیرید.</p>
       </div>
     </div>
-    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-    </button>
   `;
 };
 
@@ -1128,11 +1139,15 @@ window.importCSV = function() {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      window._csvText = await file.text();
-      const lineCount = window._csvText.split('\n').length;
-      document.getElementById('csv-preview').classList.remove('hidden');
-      document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">✓ ${lineCount} ردیف از فایل <b>${escapeHtml(file.name)}</b> خوانده شد</div>`;
-      document.getElementById('csv-import-btn').disabled = false;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        window._csvText = event.target.result;
+        const lineCount = window._csvText.split('\n').filter(l => l.trim()).length;
+        document.getElementById('csv-preview').classList.remove('hidden');
+        document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">✓ ${lineCount} ردیف از فایل <b>${escapeHtml(file.name)}</b> خوانده شد</div>`;
+        document.getElementById('csv-import-btn').disabled = false;
+      };
+      reader.readAsText(file);
     } catch (err) {
       toast('خطا در خواندن فایل: ' + err.message, 'error');
     }

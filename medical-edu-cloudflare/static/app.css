@@ -112,8 +112,9 @@ body {
   /* سایدبار در موبایل مخفی (translateX مثبت = به راست، چون سایدبار راست‌چین است) */
   .sidebar { transform: translateX(100%); }
   .sidebar.open { transform: translateX(0); }
-  .main-content { margin-right: 0 !important; }
+  .main-content { margin-right: 0 !important; margin-left: 0 !important; }
   .mobile-menu-btn { display: flex !important; }
+  .sidebar-overlay { display: block; }
 }
 
 @media (min-width: 769px) {

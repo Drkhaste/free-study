@@ -83,7 +83,7 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
   <div id="app"></div>
   <!-- Font settings button (floating, available on all pages) -->
   <button onclick="window.openFontSettings ? window.openFontSettings() : (window.location.href='/dashboard')" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
   </button>
   <script>window.__PAGE__ = ${JSON.stringify(opts.page)};</script>
   <script type="module" src="/static/app.js"></script>
@@ -135,8 +135,8 @@ pageRoutes.get('/blog', async (c) => {
     LIMIT ? OFFSET ?
   `).bind(...binds, limit, offset).all<any>();
 
-  const total = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM topics t WHERE ${where.join(' AND ')}`).bind(...binds).first<{ c: number }>();
-  const totalPages = Math.ceil((total?.c || 0) / limit);
+  const countRes = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM topics t WHERE ${where.join(' AND ')}`).bind(...binds).first<{ c: number }>();
+  const totalPages = Math.ceil((countRes?.c || 0) / limit);
 
   const tagsRes = await c.env.DB.prepare(`SELECT tags FROM topics WHERE status='published' AND tags IS NOT NULL AND tags != ''`).all<{ tags: string }>();
   const tags = new Map<string, number>();
@@ -242,18 +242,18 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
-  <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40 backdrop-blur-lg bg-white/80 dark:bg-slate-800/80">
-    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-2 md:gap-3">
-        <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg md:text-xl">پ</div>
-        <div>
-          <h1 class="font-bold text-base md:text-lg">${escapeHtml(s.site_title)}</h1>
-          <p class="text-xs text-slate-500 hidden md:block">وبلاگ آموزش پزشکی</p>
+  <header class="bg-white/80 dark:bg-slate-800/80 shadow-sm sticky top-0 z-40 backdrop-blur-lg border-b border-slate-200/50 dark:border-slate-700/50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 group">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-transform">پ</div>
+        <div class="leading-tight">
+          <h1 class="font-bold text-lg md:text-xl bg-gradient-to-l from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">${escapeHtml(s.site_title)}</h1>
+          <p class="text-[10px] md:text-xs text-slate-500 font-medium uppercase tracking-wider">Medical Academy</p>
         </div>
       </a>
-      <nav class="flex items-center gap-1 md:gap-2">
-        <a href="/dashboard" class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">داشبورد</a>
-        <a href="/login" class="px-3 md:px-4 py-2 text-xs md:text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">ورود</a>
+      <nav class="flex items-center gap-2">
+        <a href="/dashboard" class="hidden sm:flex px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">داشبورد</a>
+        <a href="/login" class="px-5 py-2.5 text-sm font-bold bg-brand-600 text-white rounded-xl hover:bg-brand-700 shadow-md shadow-brand-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0">ورود</a>
       </nav>
     </div>
   </header>
@@ -300,7 +300,7 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
 
   <!-- Font settings button (floating) -->
   <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
   </button>
 
   <script>
@@ -386,13 +386,13 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
-  <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40">
-    <div class="max-w-3xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-2 text-xs md:text-sm text-slate-500 hover:text-brand-600">
+  <header class="bg-white/80 dark:bg-slate-800/80 shadow-sm sticky top-0 z-40 backdrop-blur-lg border-b border-slate-200/50 dark:border-slate-700/50">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        وبلاگ
+        بازگشت به وبلاگ
       </a>
-      <a href="/dashboard" class="text-xs md:text-sm text-brand-600 hover:underline">داشبورد</a>
+      <a href="/dashboard" class="text-sm font-bold text-brand-600 hover:text-brand-700 transition-colors">داشبورد</a>
     </div>
   </header>
 
@@ -467,7 +467,7 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
 
   <!-- Font settings button (floating) -->
   <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
   </button>
 
   <script>
@@ -551,6 +551,7 @@ function formatDateFa(iso?: string): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
     const months = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
     return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   } catch { return iso; }

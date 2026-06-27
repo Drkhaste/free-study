@@ -45,17 +45,29 @@ telegramRoutes.post('/webhook', async (c) => {
   if (!update) return c.json({ ok: false });
 
   const message = update.message || update.edited_message;
-  if (!message) return c.json({ ok: true });
+  const callbackQuery = update.callback_query;
 
-  const chatId = message.chat?.id;
-  const text: string = message.text || '';
-  const fromId = message.from?.id;
+  if (!message && !callbackQuery) return c.json({ ok: true });
 
-  // فقط در کانال یا از طرف ادمین پاسخ بده
-  // برای سادگی، هر کسی که به ربات پیام بده رو پاسخ می‌کنیم
+  const chatId = message ? message.chat?.id : callbackQuery.message?.chat?.id;
+  const fromId = message ? message.from?.id : callbackQuery.from?.id;
+  const text: string = message ? (message.text || '') : '';
+  const data: string = callbackQuery ? (callbackQuery.data || '') : '';
 
   try {
-    const response = await handleCommand(c.env, settings, text, chatId, fromId);
+    let response: CommandResponse | null = null;
+    if (message) {
+      response = await handleCommand(c.env, settings, text, chatId, fromId);
+    } else if (callbackQuery) {
+      response = await handleCallback(c.env, settings, data, chatId, fromId);
+      // Answer callback query to remove loading state on button
+      await fetch(`https://api.telegram.org/bot${settings.telegram_bot_token}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callback_query_id: callbackQuery.id }),
+      });
+    }
+
     if (response) {
       await sendTelegramMessage(settings.telegram_bot_token, {
         chat_id: chatId,
@@ -137,63 +149,103 @@ interface CommandResponse {
   keyboard?: any;
 }
 
-async function handleCommand(env: any, settings: any, text: string, chatId: number, fromId?: number): Promise<CommandResponse | null> {
-  if (!text.startsWith('/')) {
-    return {
-      text: 'برای دیدن دستورات، /help را بفرستید.',
-    };
+async function handleCallback(env: any, settings: any, data: string, chatId: number, fromId?: number): Promise<CommandResponse | null> {
+  const DB = env.DB as D1Database;
+
+  if (data === 'cmd_new') {
+    return { text: 'لطفاً عنوان مبحث جدید را بفرستید (بدون دستور).' };
+  }
+  if (data === 'cmd_list') {
+    return handleCommand(env, settings, '/list', chatId, fromId);
+  }
+  if (data === 'cmd_drafts') {
+    return handleCommand(env, settings, '/drafts', chatId, fromId);
+  }
+  if (data === 'cmd_stats') {
+    return handleCommand(env, settings, '/stats', chatId, fromId);
   }
 
+  if (data.startsWith('publish_')) {
+    const id = data.split('_')[1];
+    return handleCommand(env, settings, `/publish ${id}`, chatId, fromId);
+  }
+
+  if (data.startsWith('send_')) {
+    const id = data.split('_')[1];
+    return handleCommand(env, settings, `/send ${id}`, chatId, fromId);
+  }
+
+  return null;
+}
+
+async function createTopic(env: any, DB: D1Database, title: string): Promise<CommandResponse> {
+  // پیدا کردن اولین پروژه (یا ساخت پروژه‌ی پیش‌فرض)
+  let project = await DB.prepare(`SELECT id, title FROM projects ORDER BY id LIMIT 1`).first<{ id: number; title: string }>();
+  if (!project) {
+    const r = await DB.prepare(`INSERT INTO projects(user_id, title, description, color) VALUES(1, 'عمومی', 'پروژه پیش‌فرض', '#3b82f6')`).run();
+    project = { id: r.meta.last_row_id as number, title: 'عمومی' };
+  }
+
+  const slug = slugify(title);
+  const result = await DB.prepare(
+    `INSERT INTO topics(project_id, user_id, title, slug, content_md, content_html, excerpt, status, word_count)
+     VALUES(?, 1, ?, ?, '', '', '', 'draft', 0)`
+  ).bind(project.id, title, slug).run();
+  const topicId = result.meta.last_row_id as number;
+
+  const editUrl = `${getBaseUrl(env)}/topics/${topicId}/edit`;
+  return {
+    text: `✅ <b>مبحث جدید ساخته شد</b>\n\n📝 عنوان: ${escapeHtml(title)}\n🆔 شناسه: <code>${topicId}</code>\n📁 پروژه: ${escapeHtml(project.title)}\n📌 وضعیت: پیش‌نویس\n\nبرای ویرایش محتوا یا انتشار از دکمه‌های زیر استفاده کنید.`,
+    keyboard: buildInlineKeyboard([
+      [{ text: '📝 ویرایش در پنل', url: editUrl }],
+      [{ text: '🟢 انتشار در وبلاگ', callback_data: `publish_${topicId}` }, { text: '📢 ارسال به کانال', callback_data: `send_${topicId}` }]
+    ]),
+  };
+}
+
+async function handleCommand(env: any, settings: any, text: string, chatId: number, fromId?: number): Promise<CommandResponse | null> {
   const DB = env.DB as D1Database;
-  const parts = text.trim().split(/\s+/);
-  const cmd = parts[0].toLowerCase().split('@')[0]; // حذف @botname
-  const args = parts.slice(1).join(' ');
 
-  switch (cmd) {
-    case '/start':
-      return {
-        text: `👋 سلام!\n\nبه ربات مدیریت <b>${escapeHtml(settings.site_title || 'آکادمی پزشکی')}</b> خوش آمدید.\n\nبا این ربات می‌توانید:\n• مبحث/پست جدید بسازید\n• مباحث را در وبلاگ منتشر کنید\n• مباحث را به کانال بفرستید\n• آمار ببینید\n\nبرای راهنما: /help`,
-      };
+  if (!text.startsWith('/')) {
+    // If not a command, assume it's a title for a new topic
+    return createTopic(env, DB, text);
+  }
 
-    case '/help':
-      return {
-        text: `📖 <b>راهنمای دستورات</b>\n\n` +
-              `<b>/new &lt;title&gt;</b>\nساخت مبحث/پست جدید (پیش‌نویس)\n\n` +
-              `<b>/list</b>\nلیست ۱۰ مبحث اخیر\n\n` +
-              `<b>/drafts</b>\nلیست پیش‌نویس‌ها\n\n` +
-              `<b>/publish &lt;id&gt;</b>\nانتشار مبحث در وبلاگ\n\n` +
-              `<b>/send &lt;id&gt;</b>\nارسال مبحث به کانال\n\n` +
-              `<b>/delete &lt;id&gt;</b>\nحذف مبحث\n\n` +
-              `<b>/stats</b>\nآمار کلی\n\n` +
-              `<b>/help</b>\nاین راهنما`,
-      };
+  if (text.startsWith('/')) {
+    const parts = text.trim().split(/\s+/);
+    const cmd = parts[0].toLowerCase().split('@')[0]; // حذف @botname
+    const args = parts.slice(1).join(' ');
 
-    case '/new': {
-      const title = args.trim();
-      if (!title) return { text: '❌ عنوان الزامی است.\n\nمثال:\n<code>/new نارسایی قلبی</code>' };
+    switch (cmd) {
+      case '/start':
+        return {
+          text: `👋 سلام!\n\nبه ربات مدیریت <b>${escapeHtml(settings.site_title || 'آکادمی پزشکی')}</b> خوش آمدید.\n\nبرای مدیریت محتوا از دکمه‌های زیر استفاده کنید یا /help را بفرستید.`,
+          keyboard: buildInlineKeyboard([
+            [{ text: '➕ مبحث جدید', callback_data: 'cmd_new' }, { text: '📝 لیست پیش‌نویس‌ها', callback_data: 'cmd_drafts' }],
+            [{ text: '📋 ۱۰ مبحث اخیر', callback_data: 'cmd_list' }, { text: '📊 آمار کلی', callback_data: 'cmd_stats' }],
+            [{ text: '🌐 مشاهده وبلاگ', url: getBaseUrl(env) + '/blog' }]
+          ])
+        };
 
-      // پیدا کردن اولین پروژه (یا ساخت پروژه‌ی پیش‌فرض)
-      let project = await DB.prepare(`SELECT id, title FROM projects ORDER BY id LIMIT 1`).first<{ id: number; title: string }>();
-      if (!project) {
-        const r = await DB.prepare(`INSERT INTO projects(user_id, title, description, color) VALUES(1, 'عمومی', 'پروژه پیش‌فرض', '#3b82f6')`).run();
-        project = { id: r.meta.last_row_id as number, title: 'عمومی' };
+      case '/help':
+        return {
+          text: `📖 <b>راهنمای دستورات</b>\n\n` +
+                `<b>/new &lt;title&gt;</b>\nساخت مبحث جدید (پیش‌نویس)\n\n` +
+                `<b>/list</b>\nلیست ۱۰ مبحث اخیر\n\n` +
+                `<b>/drafts</b>\nلیست پیش‌نویس‌ها\n\n` +
+                `<b>/publish &lt;id&gt;</b>\nانتشار مبحث در وبلاگ\n\n` +
+                `<b>/send &lt;id&gt;</b>\nارسال مبحث به کانال\n\n` +
+                `<b>/delete &lt;id&gt;</b>\nحذف مبحث\n\n` +
+                `<b>/stats</b>\nآمار کلی\n\n` +
+                `<b>/help</b>\nاین راهنما`,
+        };
+
+      case '/new': {
+        const title = args.trim();
+        if (!title) return { text: '❌ عنوان الزامی است.\n\nمثال:\n<code>/new نارسایی قلبی</code>' };
+
+        return createTopic(env, DB, title);
       }
-
-      const slug = slugify(title);
-      const result = await DB.prepare(
-        `INSERT INTO topics(project_id, user_id, title, slug, content_md, content_html, excerpt, status, word_count)
-         VALUES(?, 1, ?, ?, '', '', '', 'draft', 0)`
-      ).bind(project.id, title, slug).run();
-      const topicId = result.meta.last_row_id as number;
-
-      const editUrl = `${getBaseUrl(env)}/topics/${topicId}/edit`;
-      return {
-        text: `✅ <b>مبحث جدید ساخته شد</b>\n\n📝 عنوان: ${escapeHtml(title)}\n🆔 شناسه: <code>${topicId}</code>\n📁 پروژه: ${escapeHtml(project.title)}\n📌 وضعیت: پیش‌نویس\n\nبرای ویرایش محتوا، روی دکمه زیر بزنید.\nبرای انتشار: <code>/publish ${topicId}</code>`,
-        keyboard: buildInlineKeyboard([
-          [{ text: '📝 ویرایش در پنل', url: editUrl }],
-        ]),
-      };
-    }
 
     case '/list': {
       const result = await DB.prepare(`

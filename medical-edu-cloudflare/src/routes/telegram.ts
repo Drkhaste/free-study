@@ -363,7 +363,7 @@ async function handleCommand(env: any, settings: any, text: string, chatId: numb
       return { text: `❓ دستور ناشناخته: <code>${escapeHtml(cmd)}</code>\n\nبرای راهنما: /help` };
   }
 }
-
+}
 function escapeHtml(s: string): string {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

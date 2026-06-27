@@ -14,7 +14,6 @@ settingsRoutes.use('*', requireAuth);
 // GET /api/settings
 settingsRoutes.get('/', async (c) => {
   const s = await getSettings(c.env.DB, c.env);
-  // موسوی‌سازی: کلید API رو ماسک کن
   return json({
     settings: {
       ...s,
@@ -22,6 +21,7 @@ settingsRoutes.get('/', async (c) => {
       telegram_bot_token: s.telegram_bot_token ? maskKey(s.telegram_bot_token) : '',
       has_gemini_key: !!s.gemini_api_key,
       has_telegram_token: !!s.telegram_bot_token,
+      // پرامپت‌ها به صورت کامل برگردانده میشن (قابل ویرایش)
     }
   });
 });
@@ -32,10 +32,26 @@ settingsRoutes.put('/', async (c) => {
   if (user.role !== 'admin') return errorResponse('فقط ادمین دسترسی دارد', 403);
 
   const body = await c.req.json().catch(() => ({} as any));
-  const allowed = ['gemini_api_key', 'telegram_bot_token', 'telegram_channel_id', 'telegram_daily_hour', 'site_title', 'site_description'];
+  const allowed = [
+    'gemini_api_key',
+    'telegram_bot_token',
+    'telegram_channel_id',
+    'telegram_daily_hour',
+    'site_title',
+    'site_description',
+    // پرامپت‌های قابل تنظیم
+    'prompt_generate_topic',
+    'prompt_improve',
+    'prompt_summarize',
+    'system_prompt',
+  ];
 
   for (const key of allowed) {
-    if (body[key] !== undefined && body[key] !== null && body[key] !== '') {
+    if (body[key] !== undefined && body[key] !== null) {
+      // برای کلیدهای ماسک شده، اگه شامل •• بود skip کن
+      if ((key === 'gemini_api_key' || key === 'telegram_bot_token') && String(body[key]).includes('••')) {
+        continue;
+      }
       await setSetting(c.env.DB, key, String(body[key]));
     }
   }
@@ -90,7 +106,6 @@ settingsRoutes.post('/send-topic/:id', async (c) => {
     blogUrl,
   });
 
-  // ذخیره message_id در blog_posts
   if (res.ok && res.message_id) {
     await c.env.DB.prepare(
       `INSERT INTO blog_posts(topic_id, slug, telegram_message_id, telegram_sent_at, published_at)
@@ -100,6 +115,73 @@ settingsRoutes.post('/send-topic/:id', async (c) => {
   }
 
   return json(res);
+});
+
+// GET /api/settings/telegram/webhook-status — وضعیت webhook تلگرام
+settingsRoutes.get('/telegram/webhook-status', async (c) => {
+  const user = c.get('user')!;
+  if (user.role !== 'admin') return errorResponse('فقط ادمین دسترسی دارد', 403);
+
+  const s = await getSettings(c.env.DB, c.env);
+  if (!s.telegram_bot_token) return json({ ok: false, error: 'no_bot_token' });
+
+  const res = await fetch(`https://api.telegram.org/bot${s.telegram_bot_token}/getWebhookInfo`);
+  const data = await res.json() as any;
+
+  return json({
+    ok: data.ok,
+    webhook: data.result,
+    has_secret: !!s.telegram_webhook_secret,
+  });
+});
+
+// POST /api/settings/telegram/setup-webhook — تنظیم webhook
+settingsRoutes.post('/telegram/setup-webhook', async (c) => {
+  const user = c.get('user')!;
+  if (user.role !== 'admin') return errorResponse('فقط ادمین دسترسی دارد', 403);
+
+  const s = await getSettings(c.env.DB, c.env);
+  if (!s.telegram_bot_token) return errorResponse('توکن ربات تنظیم نشده', 400);
+
+  // تولید secret جدید
+  const secret = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
+  await setSetting(c.env.DB, 'telegram_webhook_secret', secret);
+
+  const baseUrl = new URL(c.req.url).origin;
+  const webhookUrl = `${baseUrl}/api/telegram/webhook`;
+
+  const res = await fetch(`https://api.telegram.org/bot${s.telegram_bot_token}/setWebhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: webhookUrl,
+      secret_token: secret,
+      allowed_updates: ['message', 'edited_message'],
+    }),
+  });
+  const data = await res.json() as any;
+
+  return json({
+    ok: data.ok,
+    webhook_url: webhookUrl,
+    description: data.description,
+  });
+});
+
+// POST /api/settings/telegram/delete-webhook — حذف webhook
+settingsRoutes.post('/telegram/delete-webhook', async (c) => {
+  const user = c.get('user')!;
+  if (user.role !== 'admin') return errorResponse('فقط ادمین دسترسی دارد', 403);
+
+  const s = await getSettings(c.env.DB, c.env);
+  if (!s.telegram_bot_token) return errorResponse('توکن ربات تنظیم نشده', 400);
+
+  const res = await fetch(`https://api.telegram.org/bot${s.telegram_bot_token}/deleteWebhook`, { method: 'POST' });
+  const data = await res.json() as any;
+
+  await setSetting(c.env.DB, 'telegram_webhook_secret', '');
+
+  return json({ ok: data.ok, description: data.description });
 });
 
 function maskKey(key: string): string {

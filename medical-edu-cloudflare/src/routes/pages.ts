@@ -57,9 +57,12 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
     }
   </script>
 
-  <!-- Vazirmatn font -->
+  <!-- Vazirmatn + IBM Plex Sans Arabic fonts -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
   <link rel="stylesheet" href="/static/app.css">
@@ -78,6 +81,10 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
 </head>
 <body class="${opts.bodyClass || ''} bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen antialiased">
   <div id="app"></div>
+  <!-- Font settings button (floating, available on all pages) -->
+  <button onclick="window.openFontSettings ? window.openFontSettings() : (window.location.href='/dashboard')" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+  </button>
   <script>window.__PAGE__ = ${JSON.stringify(opts.page)};</script>
   <script type="module" src="/static/app.js"></script>
 </body>
@@ -202,10 +209,7 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               ${p.date_fa}
             </span>
-            <span class="flex items-center gap-3">
-              <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>${p.reading_time_min} دقیقه</span>
-              <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>${p.view_count || 0}</span>
-            </span>
+            <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>${p.view_count || 0}</span>
           </div>
         </div>
       </article>
@@ -230,31 +234,34 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-  <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Vazirmatn', 'system-ui', 'sans-serif'] }, colors: { brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' } } } } }</script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Vazirmatn', 'IBM Plex Sans Arabic', 'system-ui', 'sans-serif'] }, colors: { brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' } } } } }</script>
   <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
   <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40 backdrop-blur-lg bg-white/80 dark:bg-slate-800/80">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">پ</div>
+    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 md:gap-3">
+        <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg md:text-xl">پ</div>
         <div>
-          <h1 class="font-bold text-lg">${escapeHtml(s.site_title)}</h1>
-          <p class="text-xs text-slate-500">وبلاگ آموزش پزشکی</p>
+          <h1 class="font-bold text-base md:text-lg">${escapeHtml(s.site_title)}</h1>
+          <p class="text-xs text-slate-500 hidden md:block">وبلاگ آموزش پزشکی</p>
         </div>
       </a>
-      <nav class="flex items-center gap-2">
-        <a href="/dashboard" class="px-4 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">داشبورد</a>
-        <a href="/login" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">ورود</a>
+      <nav class="flex items-center gap-1 md:gap-2">
+        <a href="/dashboard" class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">داشبورد</a>
+        <a href="/login" class="px-3 md:px-4 py-2 text-xs md:text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">ورود</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-8">
-    <div class="text-center mb-10">
-      <h2 class="text-3xl md:text-4xl font-bold mb-3 bg-gradient-to-l from-brand-600 to-cyan-600 bg-clip-text text-transparent">وبلاگ آموزش پزشکی</h2>
-      <p class="text-slate-500 dark:text-slate-400">آخرین مباحث منتشر شده</p>
+  <main class="max-w-6xl mx-auto px-4 py-6 md:py-8">
+    <div class="text-center mb-8 md:mb-10">
+      <h2 class="text-2xl md:text-4xl font-bold mb-2 md:mb-3 bg-gradient-to-l from-brand-600 to-cyan-600 bg-clip-text text-transparent">وبلاگ آموزش پزشکی</h2>
+      <p class="text-slate-500 dark:text-slate-400 text-sm md:text-base">آخرین مباحث منتشر شده</p>
     </div>
 
     ${opts.tag ? `<div class="bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 mb-6 text-sm">برچسب: <b>${escapeHtml(opts.tag)}</b> — <a href="/blog" class="text-brand-600">حذف فیلتر</a></div>` : ''}
@@ -269,7 +276,7 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
       </div>
     </form>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
       ${postCards}
     </div>
 
@@ -290,6 +297,62 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
       <p>${escapeHtml(s.site_title)} — ${escapeHtml(s.site_description)}</p>
     </div>
   </footer>
+
+  <!-- Font settings button (floating) -->
+  <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+  </button>
+
+  <script>
+    // Inline font settings for blog pages (no app.js dependency)
+    const BlogFontSettings = {
+      key: 'app_font_settings',
+      load() { try { return JSON.parse(localStorage.getItem(this.key) || '{}'); } catch { return {}; } },
+      save(s) { localStorage.setItem(this.key, JSON.stringify(s)); },
+      apply() {
+        const s = this.load();
+        const root = document.documentElement;
+        if (s.fontSize) root.style.setProperty('--app-font-size', s.fontSize + 'px');
+        if (s.fontFamily) root.style.setProperty('--app-font-family', s.fontFamily);
+        if (s.lineHeight) root.style.setProperty('--app-line-height', s.lineHeight);
+      },
+      open() {
+        const current = this.load();
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+        modal.innerHTML = '<div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">' +
+          '<div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold">تنظیمات متن</h3>' +
+          '<button onclick="this.closest(\\'.fixed\\').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>' +
+          '<div class="space-y-5">' +
+          '<div><label class="block text-sm font-medium mb-2">اندازه متن: <span id="fs-val" class="font-bold text-brand-600">' + (current.fontSize || 16) + 'px</span></label>' +
+          '<input type="range" id="fs-slider" min="12" max="24" step="1" value="' + (current.fontSize || 16) + '" class="w-full accent-brand-600"></div>' +
+          '<div><label class="block text-sm font-medium mb-2">فاصله خطوط: <span id="lh-val" class="font-bold text-brand-600">' + (current.lineHeight || 1.7) + '</span></label>' +
+          '<input type="range" id="lh-slider" min="1.4" max="2.2" step="0.1" value="' + (current.lineHeight || 1.7) + '" class="w-full accent-brand-600"></div>' +
+          '<div><label class="block text-sm font-medium mb-2">فونت</label><div class="grid grid-cols-2 gap-2">' +
+          '<label class="cursor-pointer"><input type="radio" name="ff" value="Vazirmatn" class="sr-only peer" ' + ((!current.fontFamily || current.fontFamily === 'Vazirmatn') ? 'checked' : '') + '><div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center"><p class="font-bold" style="font-family:Vazirmatn,sans-serif">وزیرمتن</p></div></label>' +
+          '<label class="cursor-pointer"><input type="radio" name="ff" value="IBM Plex Sans Arabic" class="sr-only peer" ' + ((current.fontFamily === 'IBM Plex Sans Arabic') ? 'checked' : '') + '><div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center"><p class="font-bold" style="font-family:IBM Plex Sans Arabic,sans-serif">پلی‌سنس عربیک</p></div></label>' +
+          '</div></div>' +
+          '<div class="flex gap-2 pt-2"><button onclick="localStorage.removeItem(\\'app_font_settings\\');BlogFontSettings.apply();this.closest(\\'.fixed\\').remove();location.reload();" class="px-4 py-2.5 bg-slate-100 rounded-xl text-sm">ریست</button>' +
+          '<button onclick="BlogFontSettings.saveAndClose(this)" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700">ذخیره</button></div>' +
+          '</div></div>';
+        document.body.appendChild(modal);
+        const fs = document.getElementById('fs-slider');
+        const lh = document.getElementById('lh-slider');
+        fs.addEventListener('input', () => { document.getElementById('fs-val').textContent = fs.value + 'px'; });
+        lh.addEventListener('input', () => { document.getElementById('lh-val').textContent = lh.value; });
+      },
+      saveAndClose(btn) {
+        const fs = document.getElementById('fs-slider').value;
+        const lh = document.getElementById('lh-slider').value;
+        const ff = document.querySelector('input[name="ff"]:checked').value;
+        this.save({ fontSize: parseInt(fs), lineHeight: parseFloat(lh), fontFamily: ff });
+        this.apply();
+        btn.closest('.fixed').remove();
+      }
+    };
+    BlogFontSettings.apply();
+    window.BlogFontSettings = BlogFontSettings;
+  </script>
 </body>
 </html>`;
 }
@@ -313,36 +376,35 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
   <meta name="theme-color" content="#0ea5e9">
   <link rel="manifest" href="/static/manifest.json">
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-  <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Vazirmatn', 'system-ui', 'sans-serif'] }, colors: { brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' } } } } }</script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Vazirmatn', 'IBM Plex Sans Arabic', 'system-ui', 'sans-serif'] }, colors: { brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' } } } } }</script>
   <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
   <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40">
-    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-2 text-sm text-slate-500 hover:text-brand-600">
+    <div class="max-w-3xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 text-xs md:text-sm text-slate-500 hover:text-brand-600">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
         وبلاگ
       </a>
-      <a href="/dashboard" class="text-sm text-brand-600 hover:underline">داشبورد</a>
+      <a href="/dashboard" class="text-xs md:text-sm text-brand-600 hover:underline">داشبورد</a>
     </div>
   </header>
 
-  <article class="max-w-3xl mx-auto px-4 py-8">
-    ${topic.project_title ? `<div class="mb-4"><span class="inline-block px-3 py-1 text-sm rounded-full" style="background-color: ${topic.project_color || '#3b82f6'}20; color: ${topic.project_color || '#3b82f6'}">${escapeHtml(topic.project_title)}</span></div>` : ''}
+  <article class="max-w-3xl mx-auto px-4 py-6 md:py-8">
+    ${topic.project_title ? `<div class="mb-4"><span class="inline-block px-3 py-1 text-xs md:text-sm rounded-full" style="background-color: ${topic.project_color || '#3b82f6'}20; color: ${topic.project_color || '#3b82f6'}">${escapeHtml(topic.project_title)}</span></div>` : ''}
 
-    <h1 class="text-3xl md:text-4xl font-bold mb-4 leading-tight">${escapeHtml(topic.title)}</h1>
+    <h1 class="text-2xl md:text-4xl font-bold mb-4 leading-tight">${escapeHtml(topic.title)}</h1>
 
-    <div class="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+    <div class="flex flex-wrap items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-500 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
       <span class="flex items-center gap-1">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         ${dateFa}
-      </span>
-      <span class="flex items-center gap-1">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        ${topic.reading_time_min} دقیقه مطالعه
       </span>
       <span class="flex items-center gap-1">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -401,6 +463,62 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
         likeCount.textContent = data.like_count;
       } catch(e) {}
     });
+  </script>
+
+  <!-- Font settings button (floating) -->
+  <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+  </button>
+
+  <script>
+    // Inline font settings for blog pages
+    const BlogFontSettings = {
+      key: 'app_font_settings',
+      load() { try { return JSON.parse(localStorage.getItem(this.key) || '{}'); } catch { return {}; } },
+      save(s) { localStorage.setItem(this.key, JSON.stringify(s)); },
+      apply() {
+        const s = this.load();
+        const root = document.documentElement;
+        if (s.fontSize) root.style.setProperty('--app-font-size', s.fontSize + 'px');
+        if (s.fontFamily) root.style.setProperty('--app-font-family', s.fontFamily);
+        if (s.lineHeight) root.style.setProperty('--app-line-height', s.lineHeight);
+      },
+      open() {
+        const current = this.load();
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+        modal.innerHTML = '<div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">' +
+          '<div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold">تنظیمات متن</h3>' +
+          '<button onclick="this.closest(\\'.fixed\\').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>' +
+          '<div class="space-y-5">' +
+          '<div><label class="block text-sm font-medium mb-2">اندازه متن: <span id="fs-val" class="font-bold text-brand-600">' + (current.fontSize || 16) + 'px</span></label>' +
+          '<input type="range" id="fs-slider" min="12" max="24" step="1" value="' + (current.fontSize || 16) + '" class="w-full accent-brand-600"></div>' +
+          '<div><label class="block text-sm font-medium mb-2">فاصله خطوط: <span id="lh-val" class="font-bold text-brand-600">' + (current.lineHeight || 1.7) + '</span></label>' +
+          '<input type="range" id="lh-slider" min="1.4" max="2.2" step="0.1" value="' + (current.lineHeight || 1.7) + '" class="w-full accent-brand-600"></div>' +
+          '<div><label class="block text-sm font-medium mb-2">فونت</label><div class="grid grid-cols-2 gap-2">' +
+          '<label class="cursor-pointer"><input type="radio" name="ff" value="Vazirmatn" class="sr-only peer" ' + ((!current.fontFamily || current.fontFamily === 'Vazirmatn') ? 'checked' : '') + '><div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center"><p class="font-bold" style="font-family:Vazirmatn,sans-serif">وزیرمتن</p></div></label>' +
+          '<label class="cursor-pointer"><input type="radio" name="ff" value="IBM Plex Sans Arabic" class="sr-only peer" ' + ((current.fontFamily === 'IBM Plex Sans Arabic') ? 'checked' : '') + '><div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center"><p class="font-bold" style="font-family:IBM Plex Sans Arabic,sans-serif">پلی‌سنس عربیک</p></div></label>' +
+          '</div></div>' +
+          '<div class="flex gap-2 pt-2"><button onclick="localStorage.removeItem(\\'app_font_settings\\');BlogFontSettings.apply();this.closest(\\'.fixed\\').remove();location.reload();" class="px-4 py-2.5 bg-slate-100 rounded-xl text-sm">ریست</button>' +
+          '<button onclick="BlogFontSettings.saveAndClose(this)" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700">ذخیره</button></div>' +
+          '</div></div>';
+        document.body.appendChild(modal);
+        const fs = document.getElementById('fs-slider');
+        const lh = document.getElementById('lh-slider');
+        fs.addEventListener('input', () => { document.getElementById('fs-val').textContent = fs.value + 'px'; });
+        lh.addEventListener('input', () => { document.getElementById('lh-val').textContent = lh.value; });
+      },
+      saveAndClose(btn) {
+        const fs = document.getElementById('fs-slider').value;
+        const lh = document.getElementById('lh-slider').value;
+        const ff = document.querySelector('input[name="ff"]:checked').value;
+        this.save({ fontSize: parseInt(fs), lineHeight: parseFloat(lh), fontFamily: ff });
+        this.apply();
+        btn.closest('.fixed').remove();
+      }
+    };
+    BlogFontSettings.apply();
+    window.BlogFontSettings = BlogFontSettings;
   </script>
 </body>
 </html>`;

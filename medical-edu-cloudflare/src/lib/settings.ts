@@ -7,8 +7,14 @@ export interface Settings {
   telegram_bot_token: string;
   telegram_channel_id: string;
   telegram_daily_hour: string;
+  telegram_webhook_secret: string;
   site_title: string;
   site_description: string;
+  // پرامپت‌های قابل تنظیم AI
+  prompt_generate_topic: string;
+  prompt_improve: string;
+  prompt_summarize: string;
+  system_prompt: string;
 }
 
 const DEFAULTS: Settings = {
@@ -16,8 +22,13 @@ const DEFAULTS: Settings = {
   telegram_bot_token: '',
   telegram_channel_id: '',
   telegram_daily_hour: '9',
+  telegram_webhook_secret: '',
   site_title: 'آکادمی پزشکی',
   site_description: 'پلتفرم آموزش پزشکی با هوش مصنوعی',
+  prompt_generate_topic: '',
+  prompt_improve: '',
+  prompt_summarize: '',
+  system_prompt: 'تو یک استاد دانشگاه پزشکی فارسی‌زبان هستی. فقط به فارسی پاسخ بده.',
 };
 
 export async function getSettings(db: D1Database, env?: any): Promise<Settings> {
@@ -26,14 +37,18 @@ export async function getSettings(db: D1Database, env?: any): Promise<Settings> 
   for (const r of result.results || []) {
     map[r.key] = r.value;
   }
-  // fallback به متغیرهای محیطی برای مقادیری که هنوز در DB ست نشدن
   return {
     gemini_api_key: map.gemini_api_key || env?.GEMINI_API_KEY || DEFAULTS.gemini_api_key,
     telegram_bot_token: map.telegram_bot_token || env?.TELEGRAM_BOT_TOKEN || DEFAULTS.telegram_bot_token,
     telegram_channel_id: map.telegram_channel_id || DEFAULTS.telegram_channel_id,
     telegram_daily_hour: map.telegram_daily_hour || DEFAULTS.telegram_daily_hour,
+    telegram_webhook_secret: map.telegram_webhook_secret || DEFAULTS.telegram_webhook_secret,
     site_title: map.site_title || DEFAULTS.site_title,
     site_description: map.site_description || DEFAULTS.site_description,
+    prompt_generate_topic: map.prompt_generate_topic || DEFAULTS.prompt_generate_topic,
+    prompt_improve: map.prompt_improve || DEFAULTS.prompt_improve,
+    prompt_summarize: map.prompt_summarize || DEFAULTS.prompt_summarize,
+    system_prompt: map.system_prompt || DEFAULTS.system_prompt,
   };
 }
 

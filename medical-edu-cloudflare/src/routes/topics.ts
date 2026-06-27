@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import { json, errorResponse, requireAuth } from '../lib/http';
-import { renderMarkdown, makeExcerpt, readingTime, wordCount, slugify } from '../lib/markdown';
+import { renderMarkdown, makeExcerpt, wordCount, slugify } from '../lib/markdown';
 import type { AppEnv } from '../index';
 import type { Topic } from '../lib/types';
 
@@ -91,8 +91,8 @@ topicRoutes.post('/', async (c) => {
   const slug = body.slug ? slugify(body.slug) : slugify(body.title);
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO topics(project_id, user_id, title, slug, content_md, content_html, excerpt, tags, status, word_count, reading_time_min)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO topics(project_id, user_id, title, slug, content_md, content_html, excerpt, tags, status, word_count)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     body.project_id,
     user.id,
@@ -104,7 +104,6 @@ topicRoutes.post('/', async (c) => {
     body.tags?.trim() || null,
     body.status || 'draft',
     wordCount(contentMd),
-    readingTime(contentMd),
   ).run();
   const id = result.meta.last_row_id as number;
   const topic = await c.env.DB.prepare(`SELECT * FROM topics WHERE id=?`).bind(id).first<Topic>();
@@ -132,7 +131,7 @@ topicRoutes.put('/:id', async (c) => {
   }
 
   await c.env.DB.prepare(
-    `UPDATE topics SET title=?, content_md=?, content_html=?, excerpt=?, tags=?, status=?, word_count=?, reading_time_min=?, updated_at=datetime('now'), published_at=? WHERE id=?`
+    `UPDATE topics SET title=?, content_md=?, content_html=?, excerpt=?, tags=?, status=?, word_count=?, updated_at=datetime('now'), published_at=? WHERE id=?`
   ).bind(
     body.title?.trim() || existing.title,
     contentMd,
@@ -141,7 +140,6 @@ topicRoutes.put('/:id', async (c) => {
     tags,
     status,
     wordCount(contentMd),
-    readingTime(contentMd),
     publishedAt,
     id
   ).run();

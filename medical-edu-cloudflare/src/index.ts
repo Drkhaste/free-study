@@ -19,6 +19,7 @@ import { aiRoutes } from './routes/ai';
 import { blogRoutes } from './routes/blog';
 import { settingsRoutes } from './routes/settings';
 import { exportRoutes } from './routes/exports';
+import { telegramRoutes } from './routes/telegram';
 import { pageRoutes } from './routes/pages';
 import { staticRoutes } from './static';
 
@@ -34,15 +35,28 @@ const app = new Hono<AppEnv>();
 
 // global middleware
 app.use('*', logger());
+
+// CORS برای API routes
 app.use('/api/*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Bot-Api-Secret-Token'],
   credentials: true,
 }));
 
-// apply auth middleware to all API routes
-app.use('/api/*', authMiddleware);
+// --- Telegram Webhook (بدون auth middleware — با secret token احراز میشه) ---
+// باید قبل از auth middleware باشه
+app.route('/api/telegram', telegramRoutes);
+
+// apply auth middleware to other API routes
+app.use('/api/auth/*', authMiddleware);
+app.use('/api/projects/*', authMiddleware);
+app.use('/api/topics/*', authMiddleware);
+app.use('/api/flashcards/*', authMiddleware);
+app.use('/api/review/*', authMiddleware);
+app.use('/api/ai/*', authMiddleware);
+app.use('/api/settings/*', authMiddleware);
+app.use('/api/export/*', authMiddleware);
 
 // --- health check ---
 app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
@@ -68,8 +82,6 @@ app.route('/', pageRoutes);
 
 // --- cron handler: ارسال روزانه تلگرام ---
 app.all('/__cron/daily', async (c) => {
-  // کلودفلر cron رو به صورت HTTP request به این مسیر می‌فرسته
-  // (یا از طریق scheduled event)
   const { handleCron } = await import('./routes/cron');
   return handleCron(c);
 });

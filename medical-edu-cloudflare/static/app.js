@@ -1,6 +1,10 @@
 /* ============================================================
    Medical Education Platform — SPA logic (vanilla JS)
-   Routes, components, state management, API client
+   - Fixed: mobile sidebar (RTL translateX)
+   - Fixed: CSV import (csvText scope)
+   - Removed: AI flashcard generation
+   - Added: font settings popup (size + family)
+   - Added: /blog navigation does full page reload
    ============================================================ */
 
 // ---- API client ----
@@ -12,8 +16,7 @@ const API = {
       opts.body = JSON.stringify(body);
     }
     const res = await fetch(path, opts);
-    if (res.status === 401 && !path.includes('/auth/')) {
-      // redirect to login
+    if (res.status === 401 && !path.includes('/auth/') && !path.includes('/blog')) {
       window.location.href = '/login';
       return null;
     }
@@ -50,7 +53,149 @@ const state = {
   currentPageData: null,
 };
 
-// ---- router ----
+// ============================================================
+// Font settings — popup with size slider + family selector
+// ============================================================
+const FONT_KEY = 'app_font_settings';
+function loadFontSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(FONT_KEY) || '{}');
+  } catch { return {}; }
+}
+function saveFontSettings(s) {
+  localStorage.setItem(FONT_KEY, JSON.stringify(s));
+}
+function applyFontSettings() {
+  const s = loadFontSettings();
+  const root = document.documentElement;
+  if (s.fontSize) root.style.setProperty('--app-font-size', s.fontSize + 'px');
+  if (s.fontFamily) root.style.setProperty('--app-font-family', s.fontFamily);
+  if (s.lineHeight) root.style.setProperty('--app-line-height', s.lineHeight);
+}
+applyFontSettings();
+
+window.openFontSettings = function() {
+  const current = loadFontSettings();
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">تنظیمات متن</h3>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium mb-2">اندازه متن: <span id="fs-val" class="font-bold text-brand-600">${current.fontSize || 16}px</span></label>
+          <input type="range" id="fs-slider" min="12" max="24" step="1" value="${current.fontSize || 16}" class="w-full accent-brand-600">
+          <div class="flex justify-between text-xs text-slate-400 mt-1">
+            <span>کوچک (12)</span>
+            <span>بزرگ (24)</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">فاصله خطوط: <span id="lh-val" class="font-bold text-brand-600">${current.lineHeight || 1.7}</span></label>
+          <input type="range" id="lh-slider" min="1.4" max="2.2" step="0.1" value="${current.lineHeight || 1.7}" class="w-full accent-brand-600">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">فونت</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" name="font-family" value="Vazirmatn" class="sr-only peer" ${(!current.fontFamily || current.fontFamily === 'Vazirmatn') ? 'checked' : ''}>
+              <div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center">
+                <p class="font-bold" style="font-family: 'Vazirmatn', sans-serif;">وزیرمتن</p>
+                <p class="text-xs text-slate-500 mt-1" style="font-family: 'Vazirmatn', sans-serif;">نمونه متن فارسی</p>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="font-family" value="IBM Plex Sans Arabic" class="sr-only peer" ${(current.fontFamily === 'IBM Plex Sans Arabic') ? 'checked' : ''}>
+              <div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-brand-500 peer-checked:bg-brand-50 text-center">
+                <p class="font-bold" style="font-family: 'IBM Plex Sans Arabic', sans-serif;">پلی‌سنس عربیک</p>
+                <p class="text-xs text-slate-500 mt-1" style="font-family: 'IBM Plex Sans Arabic', sans-serif;">نمونه متن فارسی</p>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
+          <p class="text-xs text-slate-500 mb-2">پیش‌نمایش:</p>
+          <p id="preview-text" style="font-size: ${current.fontSize || 16}px; font-family: ${current.fontFamily || 'Vazirmatn'}, sans-serif; line-height: ${current.lineHeight || 1.7};">
+            نارسایی قلبی وضعیتی است که در آن قلب نمی‌تواند خون کافی را برای پاسخگویی به نیازهای متابولیک بدن پمپاژ کند.
+          </p>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="resetFontSettings()" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm">ریست</button>
+          <button onclick="saveAndApplyFont()" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700">ذخیره</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  // live preview
+  const fsSlider = document.getElementById('fs-slider');
+  const fsVal = document.getElementById('fs-val');
+  const lhSlider = document.getElementById('lh-slider');
+  const lhVal = document.getElementById('lh-val');
+  const preview = document.getElementById('preview-text');
+
+  function updatePreview() {
+    const fs = fsSlider.value;
+    const lh = lhSlider.value;
+    const ff = document.querySelector('input[name="font-family"]:checked').value;
+    fsVal.textContent = fs + 'px';
+    lhVal.textContent = lh;
+    preview.style.fontSize = fs + 'px';
+    preview.style.lineHeight = lh;
+    preview.style.fontFamily = ff + ', sans-serif';
+  }
+  fsSlider.addEventListener('input', updatePreview);
+  lhSlider.addEventListener('input', updatePreview);
+  document.querySelectorAll('input[name="font-family"]').forEach(r => r.addEventListener('change', updatePreview));
+};
+
+window.saveAndApplyFont = function() {
+  const fs = document.getElementById('fs-slider').value;
+  const lh = document.getElementById('lh-slider').value;
+  const ff = document.querySelector('input[name="font-family"]:checked').value;
+  saveFontSettings({ fontSize: parseInt(fs), lineHeight: parseFloat(lh), fontFamily: ff });
+  applyFontSettings();
+  toast('تنظیمات ذخیره شد ✓', 'success');
+  document.querySelector('.fixed.inset-0')?.remove();
+};
+
+window.resetFontSettings = function() {
+  localStorage.removeItem(FONT_KEY);
+  saveFontSettings({ fontSize: 16, lineHeight: 1.7, fontFamily: 'Vazirmatn' });
+  applyFontSettings();
+  toast('به حالت پیش‌فرض برگشت', 'info');
+  document.querySelector('.fixed.inset-0')?.remove();
+  setTimeout(() => window.openFontSettings(), 200);
+};
+
+// ============================================================
+// Mobile sidebar toggle
+// ============================================================
+window.toggleSidebar = function() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.sidebar-overlay');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.toggle('open');
+  if (overlay) overlay.classList.toggle('show', isOpen);
+};
+
+window.closeSidebar = function() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.sidebar-overlay');
+  sidebar?.classList.remove('open');
+  overlay?.classList.remove('show');
+};
+
+// ============================================================
+// Router
+// ============================================================
 const routes = [
   { pattern: /^\/login$/, handler: () => Pages.login() },
   { pattern: /^\/$/, handler: () => Pages.dashboard() },
@@ -68,6 +213,7 @@ const routes = [
 
 async function router() {
   const path = window.location.pathname;
+
   // check auth first
   if (!state.user) {
     try {
@@ -76,13 +222,10 @@ async function router() {
     } catch { state.user = null; }
   }
 
-  // اگه لاگین نکرده و در صفحه لاگین نیست → بره به لاگین
-  // به جز صفحات عمومی مثل /blog که به طور مستقیم رندر میشن
   if (!state.user && path !== '/login' && !path.startsWith('/blog')) {
     window.location.href = '/login';
     return;
   }
-  // اگه لاگین کرده و در صفحه لاگینه → بره داشبورد
   if (state.user && path === '/login') {
     window.location.href = '/dashboard';
     return;
@@ -95,91 +238,27 @@ async function router() {
       return;
     }
   }
-  // 404
   document.getElementById('app').innerHTML = `<div class="min-h-screen flex items-center justify-center text-slate-500">صفحه یافت نشد</div>`;
 }
 
 window.addEventListener('popstate', router);
 
+// navigate: برای مسیرهای SPA از pushState استفاده میکنه
+// برای مسیرهای غیر-SPA مثل /blog و /login، full page reload میکنه
 function navigate(path) {
+  // مسیرهای خارجی یا وبلاگ → full reload
+  if (path.startsWith('/blog') || path.startsWith('/login') || path === '/') {
+    window.location.href = path;
+    return;
+  }
   window.history.pushState({}, '', path);
   router();
-  // close mobile sidebar
-  document.querySelector('.sidebar')?.classList.remove('open');
+  window.closeSidebar();
   window.scrollTo(0, 0);
 }
-
 window.navigate = navigate;
 
-// ---- layout ----
-function layout(content) {
-  const isAdmin = state.user?.role === 'admin';
-  const initial = state.user?.display_name?.[0] || state.user?.username?.[0] || 'U';
-  return `
-    <div class="flex min-h-screen">
-      <!-- Sidebar -->
-      <aside class="sidebar w-64 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-30 flex flex-col">
-        <div class="p-5 border-b border-slate-100 dark:border-slate-700">
-          <a href="/dashboard" class="flex items-center gap-3" data-link>
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">پ</div>
-            <div>
-              <h1 class="font-bold text-sm">آکادمی پزشکی</h1>
-              <p class="text-xs text-slate-400">داشبورد</p>
-            </div>
-          </a>
-        </div>
-        <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-          ${sidebarLink('/dashboard', 'داشبورد', 'home', 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6')}
-          ${sidebarLink('/projects', 'پروژه‌ها', 'folder', 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')}
-          ${sidebarLink('/flashcards', 'فلش‌کارت‌ها', 'card', 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10')}
-          ${sidebarLink('/review', 'مرور امروز', 'brain', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z')}
-          ${sidebarLink('/ai', 'دستیار هوش مصنوعی', 'sparkles', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
-          ${sidebarLink('/blog', 'وبلاگ', 'book', 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253')}
-          ${isAdmin ? sidebarLink('/settings', 'تنظیمات', 'cog', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z') : ''}
-        </nav>
-        <div class="p-3 border-t border-slate-100 dark:border-slate-700">
-          <div class="flex items-center gap-3 px-2 py-2">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-cyan-400 flex items-center justify-center text-white font-bold">${initial}</div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">${escapeHtml(state.user?.display_name || state.user?.username || '')}</p>
-              <p class="text-xs text-slate-400 truncate">@${escapeHtml(state.user?.username || '')}</p>
-            </div>
-            <button onclick="logout()" title="خروج" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <!-- mobile menu button -->
-      <button onclick="document.querySelector('.sidebar').classList.toggle('open')" class="md:hidden fixed top-4 right-4 z-50 w-10 h-10 bg-white dark:bg-slate-800 rounded-lg shadow-md flex items-center justify-center">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
-
-      <!-- overlay when sidebar open on mobile -->
-      <div onclick="document.querySelector('.sidebar').classList.remove('open')" class="md:hidden fixed inset-0 bg-black/50 z-20 hidden"></div>
-
-      <!-- Main content -->
-      <main class="flex-1 md:mr-64 min-h-screen">
-        <div id="page-content" class="p-4 md:p-8 max-w-7xl mx-auto fade-in">
-          ${content}
-        </div>
-      </main>
-    </div>
-  `;
-}
-
-function sidebarLink(href, label, icon, path) {
-  const active = window.location.pathname === href ? 'active' : '';
-  return `<a href="${href}" data-link class="sidebar-link ${active} flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>
-    ${label}
-  </a>`;
-}
-
-function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
-
-// capture all internal link clicks
+// capture link clicks
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-link]');
   if (a) {
@@ -196,6 +275,83 @@ async function logout() {
   window.location.href = '/login';
 }
 window.logout = logout;
+
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
+
+// ============================================================
+// Layout — fixed mobile sidebar + overlay
+// ============================================================
+function layout(content) {
+  const isAdmin = state.user?.role === 'admin';
+  const initial = state.user?.display_name?.[0] || state.user?.username?.[0] || 'U';
+  return `
+    <button onclick="window.toggleSidebar()" class="mobile-menu-btn md:hidden fixed top-4 right-4 z-40 w-11 h-11 bg-white dark:bg-slate-800 rounded-xl shadow-lg flex items-center justify-center border border-slate-200 dark:border-slate-700">
+      <svg class="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- Overlay -->
+    <div onclick="window.closeSidebar()" class="sidebar-overlay md:hidden fixed inset-0 bg-black/50 z-20"></div>
+
+    <div class="flex min-h-screen">
+      <!-- Sidebar (RTL: right side) -->
+      <aside class="sidebar w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-30 flex flex-col">
+        <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <a href="/dashboard" class="flex items-center gap-3" data-link>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">پ</div>
+            <div>
+              <h1 class="font-bold text-sm">آکادمی پزشکی</h1>
+              <p class="text-xs text-slate-400">داشبورد</p>
+            </div>
+          </a>
+          <button onclick="window.closeSidebar()" class="md:hidden text-slate-400 hover:text-slate-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+          ${sidebarLink('/dashboard', 'داشبورد', 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6')}
+          ${sidebarLink('/projects', 'پروژه‌ها', 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')}
+          ${sidebarLink('/flashcards', 'فلش‌کارت‌ها', 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10')}
+          ${sidebarLink('/review', 'مرور امروز', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z')}
+          ${sidebarLink('/ai', 'دستیار هوش مصنوعی', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
+          ${sidebarLink('/blog', 'وبلاگ', 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253')}
+          ${isAdmin ? sidebarLink('/settings', 'تنظیمات', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z') : ''}
+        </nav>
+        <div class="p-3 border-t border-slate-100 dark:border-slate-700">
+          <div class="flex items-center gap-3 px-2 py-2">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-cyan-400 flex items-center justify-center text-white font-bold">${initial}</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">${escapeHtml(state.user?.display_name || state.user?.username || '')}</p>
+              <p class="text-xs text-slate-400 truncate">@${escapeHtml(state.user?.username || '')}</p>
+            </div>
+            <button onclick="logout()" title="خروج" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="main-content flex-1 md:mr-72 min-h-screen">
+        <div id="page-content" class="p-4 md:p-8 max-w-7xl mx-auto fade-in page-padding">
+          ${content}
+        </div>
+      </main>
+    </div>
+
+    <!-- Font settings button (floating) -->
+    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    </button>
+  `;
+}
+
+function sidebarLink(href, label, icon, path) {
+  const active = window.location.pathname === href ? 'active' : '';
+  return `<a href="${href}" data-link class="sidebar-link ${active} flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>
+    <span>${label}</span>
+  </a>`;
+}
 
 // ============================================================
 // PAGE COMPONENTS
@@ -255,6 +411,9 @@ Pages.login = function() {
         <p class="text-center text-xs text-slate-400 mt-6">با ورود، شرایط استفاده را می‌پذیرید.</p>
       </div>
     </div>
+    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    </button>
   `;
 };
 
@@ -289,22 +448,22 @@ window.handleAuth = async function(e, tab) {
 // ---- Dashboard ----
 Pages.dashboard = async function() {
   document.getElementById('app').innerHTML = layout(`
-    <h1 class="text-2xl font-bold mb-1">سلام، ${escapeHtml(state.user?.display_name || state.user?.username || '')} 👋</h1>
-    <p class="text-slate-500 mb-6">خلاصه‌ای از پیشرفت شما</p>
+    <h1 class="text-xl md:text-2xl font-bold mb-1 mt-8 md:mt-0">سلام، ${escapeHtml(state.user?.display_name || state.user?.username || '')} 👋</h1>
+    <p class="text-slate-500 mb-6 text-sm">خلاصه‌ای از پیشرفت شما</p>
 
-    <div id="dash-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div id="dash-stats" class="stat-card-grid grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
       ${loadingCards(4)}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-bold">پروژه‌های اخیر</h2>
           <a href="/projects" data-link class="text-sm text-brand-600 hover:underline">همه</a>
         </div>
         <div id="dash-projects" class="space-y-2">${loadingCards(3)}</div>
       </div>
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-bold">کار‌های امروز</h2>
           <a href="/review" data-link class="text-sm text-brand-600 hover:underline">شروع مرور</a>
@@ -313,14 +472,14 @@ Pages.dashboard = async function() {
       </div>
     </div>
 
-    <div class="bg-gradient-to-l from-brand-600 to-cyan-600 rounded-2xl p-6 text-white shadow-lg shadow-brand-500/30">
+    <div class="bg-gradient-to-l from-brand-600 to-cyan-600 rounded-2xl p-5 md:p-6 text-white shadow-lg shadow-brand-500/30">
       <div class="flex items-start gap-4">
         <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
         </div>
         <div class="flex-1">
           <h3 class="font-bold text-lg mb-1">دستیار هوش مصنوعی</h3>
-          <p class="text-white/80 text-sm mb-3">با Gemini Google می‌تونی سریعاً محتوای آموزشی و فلش‌کارت تولید کنی.</p>
+          <p class="text-white/80 text-sm mb-3">با Gemini Google می‌تونی سریعاً محتوای آموزشی تولید کنی.</p>
           <a href="/ai" data-link class="inline-flex items-center gap-2 px-4 py-2 bg-white text-brand-600 rounded-lg text-sm font-medium hover:bg-brand-50 transition-colors">
             شروع کنید
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
@@ -330,14 +489,12 @@ Pages.dashboard = async function() {
     </div>
   `);
 
-  // load data
   try {
     const [projects, cards] = await Promise.all([
       API.get('/api/projects'),
       API.get('/api/flashcards/stats/overview'),
     ]);
 
-    // stats
     document.getElementById('dash-stats').innerHTML = `
       ${statCard('پروژه‌ها', projects.projects?.length || 0, 'folder', 'text-brand-600 bg-brand-50')}
       ${statCard('فلش‌کارت‌ها', cards.total || 0, 'card', 'text-cyan-600 bg-cyan-50')}
@@ -345,11 +502,10 @@ Pages.dashboard = async function() {
       ${statCard('یاد گرفته شده', cards.learned || 0, 'check', 'text-emerald-600 bg-emerald-50')}
     `;
 
-    // projects
     const projList = (projects.projects || []).slice(0, 4);
     document.getElementById('dash-projects').innerHTML = projList.length ? projList.map(p => `
       <a href="/projects/${p.id}" data-link class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background-color:${p.color}">${escapeHtml(p.title[0] || '?')}</div>
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0" style="background-color:${p.color}">${escapeHtml(p.title[0] || '?')}</div>
         <div class="flex-1 min-w-0">
           <p class="font-medium truncate">${escapeHtml(p.title)}</p>
           <p class="text-xs text-slate-400">${p.topic_count || 0} مبحث • ${p.flashcard_count || 0} فلش‌کارت</p>
@@ -357,10 +513,9 @@ Pages.dashboard = async function() {
       </a>
     `).join('') : `<p class="text-sm text-slate-400 text-center py-6">هنوز پروژه‌ای نساخته‌اید.</p>`;
 
-    // today's tasks
     document.getElementById('dash-today').innerHTML = `
       <a href="/review" data-link class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-        <div class="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+        <div class="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <div class="flex-1">
@@ -369,7 +524,7 @@ Pages.dashboard = async function() {
         </div>
       </a>
       <a href="/ai" data-link class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-        <div class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+        <div class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
         </div>
         <div class="flex-1">
@@ -378,9 +533,7 @@ Pages.dashboard = async function() {
         </div>
       </a>
     `;
-  } catch (err) {
-    toast(err.message, 'error');
-  }
+  } catch (err) { toast(err.message, 'error'); }
 };
 
 function loadingCards(n) { return Array(n).fill(0).map(() => `<div class="bg-slate-100 dark:bg-slate-700/50 animate-pulse h-20 rounded-xl"></div>`).join(''); }
@@ -391,15 +544,16 @@ function statCard(label, value, icon, colorClass) {
     card: 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10',
     clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     check: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+    eye: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
   };
-  return `<div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+  return `<div class="bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-5 shadow-sm border border-slate-100 dark:border-slate-700">
     <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">${label}</p>
-        <p class="text-2xl font-bold mt-1">${value}</p>
+      <div class="min-w-0">
+        <p class="text-xs md:text-sm text-slate-500 truncate">${label}</p>
+        <p class="text-xl md:text-2xl font-bold mt-1">${value}</p>
       </div>
-      <div class="w-12 h-12 rounded-xl ${colorClass} flex items-center justify-center">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${icons[icon] || icons.folder}"/></svg>
+      <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl ${colorClass} flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${icons[icon] || icons.folder}"/></svg>
       </div>
     </div>
   </div>`;
@@ -408,17 +562,17 @@ function statCard(label, value, icon, colorClass) {
 // ---- Projects page ----
 Pages.projects = async function() {
   document.getElementById('app').innerHTML = layout(`
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 mt-8 md:mt-0">
       <div>
-        <h1 class="text-2xl font-bold">پروژه‌ها</h1>
+        <h1 class="text-xl md:text-2xl font-bold">پروژه‌ها</h1>
         <p class="text-slate-500 text-sm">پروژه‌های آموزشی خود را مدیریت کنید</p>
       </div>
-      <button onclick="openProjectModal()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-md shadow-brand-500/30">
+      <button onclick="openProjectModal()" class="inline-flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-md shadow-brand-500/30 text-sm">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        پروژه جدید
+        <span class="hidden md:inline">پروژه جدید</span>
       </button>
     </div>
-    <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
       ${loadingCards(6)}
     </div>
   `);
@@ -461,7 +615,7 @@ window.openProjectModal = function(project = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl modal-mobile-full">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">${project ? 'ویرایش پروژه' : 'پروژه جدید'}</h3>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
@@ -515,9 +669,9 @@ Pages.projectView = async function(id) {
     <div id="project-header">${loadingCards(1)}</div>
     <div class="flex items-center justify-between mb-4 mt-6">
       <h2 class="text-lg font-bold">مباحث</h2>
-      <button onclick="openTopicModal(${id})" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-xl text-sm hover:bg-brand-700">
+      <button onclick="openTopicModal(${id})" class="inline-flex items-center gap-2 px-3 md:px-4 py-2 bg-brand-600 text-white rounded-xl text-sm hover:bg-brand-700">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        مبحث جدید
+        <span class="hidden md:inline">مبحث جدید</span>
       </button>
     </div>
     <div id="topics-list" class="space-y-2">${loadingCards(3)}</div>
@@ -530,16 +684,16 @@ Pages.projectView = async function(id) {
     ]);
 
     document.getElementById('project-header').innerHTML = `
-      <div class="flex items-center gap-4">
-        <a href="/projects" data-link class="text-slate-400 hover:text-brand-600">
+      <div class="flex items-center gap-3 md:gap-4 mt-8 md:mt-0">
+        <a href="/projects" data-link class="text-slate-400 hover:text-brand-600 flex-shrink-0">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
         </a>
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg" style="background-color:${proj.project.color}">${escapeHtml(proj.project.title[0] || '?')}</div>
-        <div class="flex-1">
-          <h1 class="text-2xl font-bold">${escapeHtml(proj.project.title)}</h1>
-          <p class="text-sm text-slate-500">${escapeHtml(proj.project.description || '')}</p>
+        <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style="background-color:${proj.project.color}">${escapeHtml(proj.project.title[0] || '?')}</div>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-lg md:text-2xl font-bold truncate">${escapeHtml(proj.project.title)}</h1>
+          <p class="text-sm text-slate-500 line-clamp-1">${escapeHtml(proj.project.description || '')}</p>
         </div>
-        <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200">ویرایش</button>
+        <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 flex-shrink-0">ویرایش</button>
       </div>
     `;
 
@@ -552,14 +706,13 @@ Pages.projectView = async function(id) {
     }
     list.innerHTML = topics.topics.map(t => `
       <a href="/topics/${t.id}" data-link class="block p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md hover:border-brand-200 transition-all">
-        <div class="flex items-center justify-between">
-          <h3 class="font-bold flex-1">${escapeHtml(t.title)}</h3>
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="font-bold flex-1 line-clamp-1">${escapeHtml(t.title)}</h3>
           ${statusBadge(t.status)}
         </div>
         <p class="text-sm text-slate-500 mt-1 line-clamp-1">${escapeHtml(t.excerpt || 'بدون محتوا')}</p>
-        <div class="flex items-center gap-3 mt-2 text-xs text-slate-400">
+        <div class="flex items-center gap-3 mt-2 text-xs text-slate-400 flex-wrap">
           ${t.tags ? `<span>${escapeHtml(t.tags)}</span>` : ''}
-          <span>${t.reading_time_min} دقیقه</span>
           <span>${t.word_count} کلمه</span>
         </div>
       </a>
@@ -574,14 +727,14 @@ function statusBadge(status) {
     archived: { label: 'بایگانی', cls: 'bg-orange-100 text-orange-700' },
   };
   const s = map[status] || map.draft;
-  return `<span class="text-xs px-2 py-1 rounded-md ${s.cls}">${s.label}</span>`;
+  return `<span class="text-xs px-2 py-1 rounded-md ${s.cls} flex-shrink-0">${s.label}</span>`;
 }
 
 window.openTopicModal = function(projectId, topic = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl modal-mobile-full">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">مبحث جدید</h3>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
@@ -624,7 +777,7 @@ window.createTopic = async function(e, projectId) {
   } catch (err) { toast(err.message, 'error'); }
 };
 
-// ---- Topic view (read-only) ----
+// ---- Topic view ----
 Pages.topicView = async function(id) {
   document.getElementById('app').innerHTML = layout(`
     <div id="topic-content">${loadingCards(1)}</div>
@@ -633,25 +786,23 @@ Pages.topicView = async function(id) {
     const data = await API.get(`/api/topics/${id}`);
     const t = data.topic;
     document.getElementById('topic-content').innerHTML = `
-      <a href="/projects/${t.project_id}" data-link class="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-brand-600 mb-3">
+      <a href="/projects/${t.project_id}" data-link class="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-brand-600 mb-3 mt-8 md:mt-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
         ${escapeHtml(t.project_title || 'پروژه')}
       </a>
-      <div class="flex items-start justify-between gap-4 mb-2">
-        <h1 class="text-3xl font-bold flex-1">${escapeHtml(t.title)}</h1>
-        <div class="flex items-center gap-2">
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-2">
+        <h1 class="text-2xl md:text-3xl font-bold flex-1">${escapeHtml(t.title)}</h1>
+        <div class="flex items-center gap-2 flex-wrap">
           ${statusBadge(t.status)}
           <a href="/topics/${t.id}/edit" data-link class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700">ویرایش</a>
           ${t.status === 'draft' ? `<button onclick="publishTopic(${t.id})" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">انتشار در وبلاگ</button>` : `<a href="/blog/${t.slug}" class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg">مشاهده در وبلاگ</a>`}
         </div>
       </div>
-      <div class="flex items-center gap-3 text-sm text-slate-400 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
-        <span>${t.reading_time_min} دقیقه مطالعه</span>
-        <span>•</span>
+      <div class="flex items-center gap-3 text-sm text-slate-400 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700 flex-wrap">
         <span>${t.word_count} کلمه</span>
         ${t.tags ? `<span>•</span><span>${escapeHtml(t.tags)}</span>` : ''}
       </div>
-      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-100 dark:border-slate-700">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
     `;
   } catch (err) { toast(err.message, 'error'); }
 };
@@ -665,14 +816,14 @@ window.publishTopic = async function(id) {
   } catch (err) { toast(err.message, 'error'); }
 };
 
-// ---- Topic edit (markdown editor) ----
+// ---- Topic edit ----
 Pages.topicEdit = async function(id) {
   document.getElementById('app').innerHTML = layout(`
-    <div class="mb-4 flex items-center gap-3">
+    <div class="mb-4 flex items-center gap-3 mt-8 md:mt-0">
       <a href="javascript:history.back()" class="text-slate-400 hover:text-brand-600">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
       </a>
-      <h1 class="text-2xl font-bold">${id === 'new' ? 'مبحث جدید' : 'ویرایش مبحث'}</h1>
+      <h1 class="text-xl md:text-2xl font-bold">${id === 'new' ? 'مبحث جدید' : 'ویرایش مبحث'}</h1>
     </div>
     <div id="editor-area">${loadingCards(1)}</div>
   `);
@@ -686,7 +837,7 @@ Pages.topicEdit = async function(id) {
   }
 
   document.getElementById('editor-area').innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 mb-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 border border-slate-100 dark:border-slate-700 mb-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div class="md:col-span-2">
           <label class="block text-sm font-medium mb-1.5">عنوان</label>
@@ -706,7 +857,7 @@ Pages.topicEdit = async function(id) {
         <input type="text" id="topic-tags" value="${escapeHtml(topic?.tags || '')}" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="قلب, اورژانس">
       </div>
 
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <label class="block text-sm font-medium">محتوا (Markdown)</label>
         <div class="flex items-center gap-2">
           <button onclick="generateWithAI(${id !== 'new' ? id : 'null'})" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gradient-to-l from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-md">
@@ -718,7 +869,7 @@ Pages.topicEdit = async function(id) {
       </div>
       <textarea id="topic-editor">${escapeHtml(topic?.content_md || '')}</textarea>
 
-      <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700 mt-4">
+      <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700 mt-4 flex-wrap gap-2">
         <span class="text-xs text-slate-400" id="word-count">${(topic?.content_md || '').split(/\s+/).filter(Boolean).length} کلمه</span>
         <div class="flex gap-2">
           <a href="${id !== 'new' ? `/topics/${id}` : '/dashboard'}" data-link class="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-xl">انصراف</a>
@@ -728,7 +879,6 @@ Pages.topicEdit = async function(id) {
     </div>
   `;
 
-  // init EasyMDE
   const easyMDE = new EasyMDE({
     element: document.getElementById('topic-editor'),
     direction: 'rtl',
@@ -736,9 +886,7 @@ Pages.topicEdit = async function(id) {
     autofocus: true,
     status: false,
     toolbar: ['bold', 'italic', 'heading', '|', 'quote', 'unordered-list', 'ordered-list', '|', 'link', 'image', 'code', 'table', '|', 'preview', 'side-by-side', 'fullscreen', '|', 'guide'],
-    renderingConfig: {
-      codeSyntaxHighlighting: true,
-    },
+    renderingConfig: { codeSyntaxHighlighting: true },
   });
   window._editor = easyMDE;
   easyMDE.codemirror.on('change', () => {
@@ -779,10 +927,7 @@ window.generateWithAI = async function(topicId) {
   btn.innerHTML = '<span class="loader"></span> در حال تولید...';
 
   try {
-    const res = await API.post('/api/ai/generate-topic', {
-      title,
-      topic_id: topicId || null,
-    });
+    const res = await API.post('/api/ai/generate-topic', { title, topic_id: topicId || null });
     window._editor.value(res.content_md);
     toast('محتوا تولید شد ✓', 'success');
   } catch (err) { toast(err.message, 'error'); }
@@ -808,31 +953,31 @@ window.improveWithAI = async function() {
   btn.textContent = orig;
 };
 
-// ---- Flashcards page ----
+// ---- Flashcards page (بدون AI — فقط دستی و CSV) ----
 Pages.flashcards = async function() {
   document.getElementById('app').innerHTML = layout(`
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 mt-8 md:mt-0 flex-wrap gap-3">
       <div>
-        <h1 class="text-2xl font-bold">فلش‌کارت‌ها</h1>
+        <h1 class="text-xl md:text-2xl font-bold">فلش‌کارت‌ها</h1>
         <p class="text-slate-500 text-sm">مدیریت و مرور فلش‌کارت‌ها</p>
       </div>
       <div class="flex gap-2">
-        <button onclick="importCSV()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 text-sm">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          ایمپورت CSV
+        <button onclick="addFlashcardModal()" class="inline-flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span class="hidden md:inline">کارت جدید</span>
         </button>
-        <button onclick="generateFlashcardsAI()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-l from-purple-600 to-pink-600 text-white rounded-xl text-sm hover:shadow-md">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-          ساخت با AI
+        <button onclick="importCSV()" class="inline-flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <span class="hidden md:inline">ایمپورت CSV</span>
         </button>
       </div>
     </div>
 
-    <div id="flash-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">${loadingCards(4)}</div>
+    <div id="flash-stats" class="stat-card-grid grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">${loadingCards(4)}</div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 md:p-4 mb-4 border border-slate-100 dark:border-slate-700">
       <div class="flex flex-wrap items-center gap-3">
-        <input type="text" id="fc-search" placeholder="جستجو..." class="flex-1 min-w-[200px] px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500">
+        <input type="text" id="fc-search" placeholder="جستجو..." class="flex-1 min-w-[150px] px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500">
         <button onclick="exportFlashcards()" class="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg">خروجی CSV</button>
       </div>
     </div>
@@ -861,7 +1006,7 @@ Pages.flashcards = async function() {
       if (!data.flashcards?.length) {
         list.innerHTML = `<div class="text-center py-12 text-slate-400">
           <p>هنوز فلش‌کارتی نساخته‌اید.</p>
-          <p class="text-xs mt-1">با ایمپورت CSV یا ساخت با AI شروع کنید.</p>
+          <p class="text-xs mt-1">با ایمپورت CSV یا ساخت دستی شروع کنید.</p>
         </div>`;
         return;
       }
@@ -873,7 +1018,7 @@ Pages.flashcards = async function() {
               <p class="text-sm text-slate-500 line-clamp-2">${escapeHtml(c.back)}</p>
               ${c.tags ? `<p class="text-xs text-slate-400 mt-2">${escapeHtml(c.tags)}</p>` : ''}
             </div>
-            <div class="flex flex-col items-end gap-1 text-xs">
+            <div class="flex flex-col items-end gap-1 text-xs flex-shrink-0">
               <span class="px-2 py-0.5 ${c.next_review_at <= new Date().toISOString() ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'} rounded">مرور ${c.repetitions >= 3 ? '✓' : new Date(c.next_review_at).toLocaleDateString('fa-IR')}</span>
               <button onclick="resetCard(${c.id})" class="text-slate-400 hover:text-brand-600 text-xs">ریست</button>
             </div>
@@ -892,11 +1037,61 @@ Pages.flashcards = async function() {
   window._reloadFlashcards = loadList;
 };
 
+// ---- Add flashcard (manual) ----
+window.addFlashcardModal = function() {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl modal-mobile-full">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">فلش‌کارت جدید</h3>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form onsubmit="saveFlashcard(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">سوال / صورت کارت</label>
+          <textarea name="front" required rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="مثلاً: تعریف نارسایی قلبی؟"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">پاسخ</label>
+          <textarea name="back" required rows="3" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="ناتوانی قلب در پمپاژ کافی خون..."></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">تگ‌ها (اختیاری)</label>
+          <input type="text" name="tags" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="قلب, نارسایی">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl">انصراف</button>
+          <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700">ذخیره</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+};
+
+window.saveFlashcard = async function(e) {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try {
+    await API.post('/api/flashcards', data);
+    toast('فلش‌کارت ساخته شد ✓', 'success');
+    e.target.closest('.fixed').remove();
+    if (window._reloadFlashcards) window._reloadFlashcards();
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+// ---- Import CSV — FIX: csvText در window scope ----
+window._csvText = '';
+
 window.importCSV = function() {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl modal-mobile-full">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">ایمپورت فلش‌کارت از CSV</h3>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
@@ -905,13 +1100,14 @@ window.importCSV = function() {
       </div>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium mb-1.5">فایل CSV را انتخاب کنید یا بکشید</label>
+          <label class="block text-sm font-medium mb-1.5">فایل CSV را انتخاب کنید</label>
           <input type="file" accept=".csv,text/csv" id="csv-file" class="block w-full text-sm text-slate-500 file:ml-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
         </div>
         <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-slate-500">
           <p class="font-medium mb-1">فرمت ستون‌ها:</p>
           <code class="block bg-slate-100 dark:bg-slate-800 p-2 rounded">front,back,hint,tags</code>
           <p class="mt-1">ستون‌های front و back الزامی هستند. hint و tags اختیاری.</p>
+          <p class="mt-1">اگه هدر ندارید، ترتیب ستون‌ها به همین شکل در نظر گرفته میشه.</p>
         </div>
         <div id="csv-preview" class="hidden"></div>
         <div class="flex gap-2 pt-2">
@@ -922,73 +1118,46 @@ window.importCSV = function() {
     </div>
   `;
   document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
-  let csvText = '';
+  // reset
+  window._csvText = '';
+  document.getElementById('csv-import-btn').disabled = true;
+
   document.getElementById('csv-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    csvText = await file.text();
-    document.getElementById('csv-preview').classList.remove('hidden');
-    document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">${csvText.split('\n').length} ردیف — ${file.name}</div>`;
-    document.getElementById('csv-import-btn').disabled = false;
+    try {
+      window._csvText = await file.text();
+      const lineCount = window._csvText.split('\n').length;
+      document.getElementById('csv-preview').classList.remove('hidden');
+      document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">✓ ${lineCount} ردیف از فایل <b>${escapeHtml(file.name)}</b> خوانده شد</div>`;
+      document.getElementById('csv-import-btn').disabled = false;
+    } catch (err) {
+      toast('خطا در خواندن فایل: ' + err.message, 'error');
+    }
   });
 };
 
 window.doImportCSV = async function() {
-  if (!csvText) return;
+  if (!window._csvText) {
+    toast('ابتدا فایل را انتخاب کنید', 'error');
+    return;
+  }
   const btn = document.getElementById('csv-import-btn');
+  if (!btn) return;
   btn.disabled = true;
-  btn.innerHTML = '<span class="loader"></span>';
+  btn.innerHTML = '<span class="loader"></span> در حال ایمپورت...';
   try {
-    const res = await API.post('/api/flashcards/import-csv', { csv_text: csvText });
+    const res = await API.post('/api/flashcards/import-csv', { csv_text: window._csvText });
     toast(`${res.imported} فلش‌کارت ایمپورت شد ✓`, 'success');
     btn.closest('.fixed').remove();
     if (window._reloadFlashcards) window._reloadFlashcards();
-  } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'ایمپورت'; }
-};
-
-window.generateFlashcardsAI = function() {
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
-  modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold">ساخت فلش‌کارت با AI</h3>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <form onsubmit="doGenerateAI(event)" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1.5">موضوع</label>
-          <input type="text" name="topic_title" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="مثلاً: نارسایی قلبی">
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">تعداد کارت</label>
-          <input type="number" name="count" value="10" min="3" max="30" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
-        </div>
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl">انصراف</button>
-          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-l from-purple-600 to-pink-600 text-white rounded-xl">ساخت</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.body.appendChild(modal);
-};
-
-window.doGenerateAI = async function(e) {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loader"></span>';
-  try {
-    const res = await API.post('/api/ai/generate-flashcards', { topic_title: data.topic_title, count: parseInt(data.count) });
-    toast(`${res.count} فلش‌کارت ساخته شد ✓`, 'success');
-    e.target.closest('.fixed').remove();
-    if (window._reloadFlashcards) window._reloadFlashcards();
-  } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'ساخت'; }
+  } catch (err) {
+    toast(err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = 'ایمپورت';
+  }
 };
 
 window.resetCard = async function(id) {
@@ -1002,12 +1171,12 @@ window.exportFlashcards = function() {
   window.location.href = '/api/export/flashcards.csv';
 };
 
-// ---- Review page (SM-2) ----
+// ---- Review page ----
 Pages.review = async function() {
   document.getElementById('app').innerHTML = layout(`
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 mt-8 md:mt-0">
       <div>
-        <h1 class="text-2xl font-bold">مرور فلش‌کارت</h1>
+        <h1 class="text-xl md:text-2xl font-bold">مرور فلش‌کارت</h1>
         <p class="text-slate-500 text-sm">بر اساس الگوریتم SM-2</p>
       </div>
     </div>
@@ -1037,7 +1206,6 @@ Pages.review = async function() {
 
 function renderReviewCard() {
   if (state.reviewIndex >= state.reviewQueue.length) {
-    // session complete
     const total = state.reviewQueue.length;
     const correct = state.reviewCorrect;
     const accuracy = Math.round((correct / total) * 100);
@@ -1047,24 +1215,23 @@ function renderReviewCard() {
           <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         </div>
         <h2 class="text-2xl font-bold mb-2">آفرین! نشست تمام شد 🎉</h2>
-        <div class="grid grid-cols-3 gap-4 max-w-md mx-auto my-6">
+        <div class="grid grid-cols-3 gap-3 md:gap-4 max-w-md mx-auto my-6">
           <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-            <p class="text-3xl font-bold text-brand-600">${total}</p>
+            <p class="text-2xl md:text-3xl font-bold text-brand-600">${total}</p>
             <p class="text-xs text-slate-400">کل کارت</p>
           </div>
           <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-            <p class="text-3xl font-bold text-emerald-600">${correct}</p>
+            <p class="text-2xl md:text-3xl font-bold text-emerald-600">${correct}</p>
             <p class="text-xs text-slate-400">درست</p>
           </div>
           <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-            <p class="text-3xl font-bold text-purple-600">${accuracy}٪</p>
+            <p class="text-2xl md:text-3xl font-bold text-purple-600">${accuracy}٪</p>
             <p class="text-xs text-slate-400">دقت</p>
           </div>
         </div>
         <a href="/dashboard" data-link class="inline-block px-6 py-3 bg-brand-600 text-white rounded-xl">بازگشت به داشبورد</a>
       </div>
     `;
-    // end session
     API.post(`/api/review/${state.reviewSessionId}/end`, {}).catch(() => {});
     return;
   }
@@ -1084,36 +1251,36 @@ function renderReviewCard() {
       </div>
 
       <div class="flip-card" id="review-card" onclick="flipCard()">
-        <div class="flip-card-inner relative" style="min-height: 320px;">
-          <div class="flip-card-front bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-lg border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer" style="min-height:320px;">
+        <div class="flip-card-inner relative" style="min-height: 280px;">
+          <div class="flip-card-front bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-8 shadow-lg border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer" style="min-height:280px;">
             <span class="text-xs text-slate-400 mb-3">سوال</span>
-            <p class="text-2xl font-bold mb-4">${escapeHtml(card.front)}</p>
+            <p class="text-lg md:text-2xl font-bold mb-4">${escapeHtml(card.front)}</p>
             ${card.hint ? `<details class="text-sm text-slate-500"><summary>راهنما</summary>${escapeHtml(card.hint)}</details>` : ''}
             <span class="text-xs text-brand-600 mt-6 opacity-70">برای دیدن پاسخ کلیک کنید</span>
           </div>
-          <div class="flip-card-back bg-gradient-to-br from-brand-500 to-cyan-600 text-white rounded-2xl p-8 shadow-lg flex flex-col items-center justify-center text-center" style="min-height:320px;">
+          <div class="flip-card-back bg-gradient-to-br from-brand-500 to-cyan-600 text-white rounded-2xl p-6 md:p-8 shadow-lg flex flex-col items-center justify-center text-center" style="min-height:280px;">
             <span class="text-xs opacity-80 mb-3">پاسخ</span>
-            <p class="text-xl font-medium">${escapeHtml(card.back)}</p>
+            <p class="text-base md:text-xl font-medium">${escapeHtml(card.back)}</p>
           </div>
         </div>
       </div>
 
       <div id="review-buttons" class="hidden grid grid-cols-4 gap-2 mt-6 fade-in">
-        <button onclick="answerCard('again')" class="py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 font-medium">
+        <button onclick="answerCard('again')" class="py-2 md:py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 font-medium text-sm md:text-base">
           <span class="block">دوباره</span>
-          <span class="text-xs opacity-80">&lt; ۱ دقیقه</span>
+          <span class="text-xs opacity-80 hidden md:block">&lt; ۱ دقیقه</span>
         </button>
-        <button onclick="answerCard('hard')" class="py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 font-medium">
+        <button onclick="answerCard('hard')" class="py-2 md:py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 font-medium text-sm md:text-base">
           <span class="block">سخت</span>
-          <span class="text-xs opacity-80">۱۰ دقیقه</span>
+          <span class="text-xs opacity-80 hidden md:block">۱۰ دقیقه</span>
         </button>
-        <button onclick="answerCard('good')" class="py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 font-medium">
+        <button onclick="answerCard('good')" class="py-2 md:py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 font-medium text-sm md:text-base">
           <span class="block">خوب</span>
-          <span class="text-xs opacity-80">۱ روز</span>
+          <span class="text-xs opacity-80 hidden md:block">۱ روز</span>
         </button>
-        <button onclick="answerCard('easy')" class="py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 font-medium">
+        <button onclick="answerCard('easy')" class="py-2 md:py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 font-medium text-sm md:text-base">
           <span class="block">آسان</span>
-          <span class="text-xs opacity-80">۴ روز</span>
+          <span class="text-xs opacity-80 hidden md:block">۴ روز</span>
         </button>
       </div>
     </div>
@@ -1138,27 +1305,27 @@ window.answerCard = async function(button) {
 // ---- AI page ----
 Pages.ai = function() {
   document.getElementById('app').innerHTML = layout(`
-    <h1 class="text-2xl font-bold mb-1">دستیار هوش مصنوعی</h1>
-    <p class="text-slate-500 mb-6">تولید محتوای آموزشی و فلش‌کارت با Gemini</p>
+    <h1 class="text-xl md:text-2xl font-bold mb-1 mt-8 md:mt-0">دستیار هوش مصنوعی</h1>
+    <p class="text-slate-500 mb-6 text-sm">تولید محتوای آموزشی با Gemini</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <button onclick="navigate('/topics/new')" class="text-right bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-6 hover:shadow-lg transition-all">
+      <button onclick="navigate('/topics/new')" class="text-right bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
         <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
         <h3 class="font-bold text-lg mb-1">تولید مبحث آموزشی</h3>
         <p class="text-white/80 text-sm">یک مبحث کامل با ساختار استاندارد تولید کنید</p>
       </button>
-      <button onclick="generateFlashcardsAI()" class="text-right bg-gradient-to-br from-cyan-500 to-brand-500 text-white rounded-2xl p-6 hover:shadow-lg transition-all">
+      <a href="/settings" data-link class="text-right bg-gradient-to-br from-cyan-500 to-brand-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
         <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10"/></svg>
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         </div>
-        <h3 class="font-bold text-lg mb-1">تولید فلش‌کارت</h3>
-        <p class="text-white/80 text-sm">چند فلش‌کارت کلیدی از یک موضوع تولید کنید</p>
-      </button>
+        <h3 class="font-bold text-lg mb-1">ویرایش پرامپت‌ها</h3>
+        <p class="text-white/80 text-sm">پرامپت‌های AI را در پنل تنظیمات سفارشی کنید</p>
+      </a>
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
       <h2 class="font-bold mb-4">لاگ‌های اخیر AI</h2>
       <div id="ai-logs">${loadingCards(3)}</div>
     </div>
@@ -1166,12 +1333,12 @@ Pages.ai = function() {
 
   API.get('/api/ai/logs?limit=10').then(data => {
     document.getElementById('ai-logs').innerHTML = data.logs?.length ? data.logs.map(l => `
-      <div class="py-2 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between">
+      <div class="py-2 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between gap-3">
         <div class="flex-1 min-w-0">
           <p class="text-sm truncate">${escapeHtml(l.prompt?.slice(0, 80) || '')}...</p>
           <p class="text-xs text-slate-400">${new Date(l.created_at).toLocaleString('fa-IR')}</p>
         </div>
-        <span class="text-xs px-2 py-1 ${l.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} rounded">${l.status === 'success' ? '✓' : '✗'}</span>
+        <span class="text-xs px-2 py-1 ${l.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} rounded flex-shrink-0">${l.status === 'success' ? '✓' : '✗'}</span>
       </div>
     `).join('') : '<p class="text-sm text-slate-400 text-center py-4">هنوز لاگی ثبت نشده.</p>';
   }).catch(() => {});
@@ -1180,11 +1347,11 @@ Pages.ai = function() {
 // ---- Settings page ----
 Pages.settings = async function() {
   document.getElementById('app').innerHTML = layout(`
-    <h1 class="text-2xl font-bold mb-1">تنظیمات</h1>
-    <p class="text-slate-500 mb-6">پیکربندی اپلیکیشن</p>
+    <h1 class="text-xl md:text-2xl font-bold mb-1 mt-8 md:mt-0">تنظیمات</h1>
+    <p class="text-slate-500 mb-6 text-sm">پیکربندی اپلیکیشن</p>
 
     <div class="space-y-6 max-w-2xl">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">اطلاعات سایت</h2>
         <div class="space-y-4">
           <div>
@@ -1198,7 +1365,7 @@ Pages.settings = async function() {
         </div>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">تنظیمات Gemini AI</h2>
         <div class="space-y-4">
           <div>
@@ -1209,7 +1376,30 @@ Pages.settings = async function() {
         </div>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
+        <h2 class="font-bold mb-4">پرامپت‌های قابل تنظیم AI</h2>
+        <p class="text-xs text-slate-500 mb-4">متغیرها: <code dir="ltr">{{title}}</code>، <code dir="ltr">{{content}}</code>، <code dir="ltr">{{project_context}}</code></p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">System Prompt</label>
+            <textarea id="set-prompt-system" rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm" dir="rtl"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">پرامپت تولید مبحث</label>
+            <textarea id="set-prompt-topic" rows="8" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" dir="rtl"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">پرامپت بهبود متن</label>
+            <textarea id="set-prompt-improve" rows="4" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" dir="rtl"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">پرامپت خلاصه‌سازی</label>
+            <textarea id="set-prompt-summarize" rows="4" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" dir="rtl"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">تنظیمات تلگرام</h2>
         <div class="space-y-4">
           <div>
@@ -1225,11 +1415,22 @@ Pages.settings = async function() {
             <label class="block text-sm font-medium mb-1.5">ساعت ارسال روزانه (UTC)</label>
             <input type="number" id="set-tg-hour" min="0" max="23" class="w-24 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500">
           </div>
-          <button onclick="testTelegram()" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm hover:bg-slate-200">تست اتصال</button>
+
+          <div class="border-t border-slate-100 dark:border-slate-700 pt-4 mt-4">
+            <h3 class="font-medium mb-2 text-sm">کنترل از تلگرام (Webhook)</h3>
+            <p class="text-xs text-slate-500 mb-3">با فعال کردن webhook می‌توانید با دستورات تلگرام (مثل <code>/new</code>، <code>/list</code>، <code>/publish</code>) محتوا را مدیریت کنید.</p>
+            <div id="webhook-status" class="text-xs mb-3"></div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setupWebhook()" class="px-3 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">فعال‌سازی Webhook</button>
+              <button onclick="checkWebhook()" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm hover:bg-slate-200">بررسی وضعیت</button>
+              <button onclick="deleteWebhook()" class="px-3 py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200">حذف Webhook</button>
+              <button onclick="testTelegram()" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm hover:bg-slate-200">تست کانال</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">پروفایل</h2>
         <div class="space-y-4">
           <div>
@@ -1243,9 +1444,9 @@ Pages.settings = async function() {
         </div>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">پشتیبان‌گیری</h2>
-        <div class="flex gap-3">
+        <div class="flex gap-3 flex-wrap">
           <button onclick="window.location.href='/api/export/backup.json'" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm hover:bg-slate-200">دانلود فایل پشتیبان (JSON)</button>
         </div>
       </div>
@@ -1266,8 +1467,15 @@ Pages.settings = async function() {
     document.getElementById('set-tg-token').dataset.has = s.settings.has_telegram_token ? '1' : '';
     document.getElementById('set-tg-channel').value = s.settings.telegram_channel_id || '';
     document.getElementById('set-tg-hour').value = s.settings.telegram_daily_hour || '9';
+    document.getElementById('set-prompt-system').value = s.settings.system_prompt || '';
+    document.getElementById('set-prompt-topic').value = s.settings.prompt_generate_topic || '';
+    document.getElementById('set-prompt-improve').value = s.settings.prompt_improve || '';
+    document.getElementById('set-prompt-summarize').value = s.settings.prompt_summarize || '';
     document.getElementById('set-display-name').value = state.user?.display_name || '';
     document.getElementById('set-email').value = state.user?.email || '';
+
+    // بررسی وضعیت webhook
+    checkWebhook();
   } catch (err) { toast(err.message, 'error'); }
 };
 
@@ -1277,6 +1485,10 @@ window.saveSettings = async function() {
     site_description: document.getElementById('set-desc').value,
     telegram_channel_id: document.getElementById('set-tg-channel').value,
     telegram_daily_hour: document.getElementById('set-tg-hour').value,
+    system_prompt: document.getElementById('set-prompt-system').value,
+    prompt_generate_topic: document.getElementById('set-prompt-topic').value,
+    prompt_improve: document.getElementById('set-prompt-improve').value,
+    prompt_summarize: document.getElementById('set-prompt-summarize').value,
   };
   const gemini = document.getElementById('set-gemini').value;
   if (gemini && !gemini.includes('••')) data.gemini_api_key = gemini;
@@ -1286,7 +1498,6 @@ window.saveSettings = async function() {
   try {
     await API.put('/api/settings', data);
 
-    // profile
     const dn = document.getElementById('set-display-name').value;
     const em = document.getElementById('set-email').value;
     if (dn !== state.user.display_name || em !== state.user.email) {
@@ -1304,6 +1515,56 @@ window.testTelegram = async function() {
     if (res.ok) toast('پیام تست ارسال شد ✓', 'success');
     else toast('خطا: ' + (res.error || 'نامشخص'), 'error');
   } catch (err) { toast(err.message, 'error'); }
+};
+
+window.setupWebhook = async function() {
+  try {
+    const res = await API.post('/api/settings/telegram/setup-webhook', {});
+    if (res.ok) {
+      toast('Webhook فعال شد ✓', 'success');
+      checkWebhook();
+    } else {
+      toast('خطا: ' + (res.description || 'نامشخص'), 'error');
+    }
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.deleteWebhook = async function() {
+  if (!confirm('Webhook حذف شود؟')) return;
+  try {
+    const res = await API.post('/api/settings/telegram/delete-webhook', {});
+    if (res.ok) {
+      toast('Webhook حذف شد', 'info');
+      checkWebhook();
+    } else {
+      toast('خطا: ' + (res.description || 'نامشخص'), 'error');
+    }
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.checkWebhook = async function() {
+  const statusEl = document.getElementById('webhook-status');
+  if (!statusEl) return;
+  try {
+    const res = await API.get('/api/settings/telegram/webhook-status');
+    if (res.ok && res.webhook) {
+      const w = res.webhook;
+      const url = w.url || '(تنظیم نشده)';
+      const pending = w.pending_update_count || 0;
+      const lastError = w.last_error_message;
+      statusEl.innerHTML = `
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg space-y-1">
+          <p>📍 URL: <code dir="ltr" class="text-xs">${escapeHtml(url)}</code></p>
+          <p>📨 Pending updates: <b>${pending}</b></p>
+          ${lastError ? `<p class="text-red-500">⚠️ خطا: ${escapeHtml(lastError)}</p>` : '<p class="text-emerald-600">✓ بدون خطا</p>'}
+        </div>
+      `;
+    } else {
+      statusEl.innerHTML = `<p class="text-slate-400">ابتدا توکن ربات را ذخیره کنید.</p>`;
+    }
+  } catch (err) {
+    statusEl.innerHTML = `<p class="text-red-500">خطا در دریافت وضعیت</p>`;
+  }
 };
 
 // ---- initial route ----

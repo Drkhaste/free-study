@@ -1,10 +1,11 @@
 // ============================================================
-// AI routes (Gemini)
+// AI routes (Gemini) — فقط تولید/بهبود/خلاصه مبحث
+// (قابلیت ساخت فلش‌کارت با AI حذف شد)
 // ============================================================
 
 import { Hono } from 'hono';
 import { json, errorResponse, requireAuth } from '../lib/http';
-import { callGemini, PROMPTS } from '../lib/gemini';
+import { callGemini, fillTemplate } from '../lib/gemini';
 import { getSettings } from '../lib/settings';
 import { renderMarkdown } from '../lib/markdown';
 import type { AppEnv } from '../index';
@@ -23,10 +24,16 @@ aiRoutes.post('/generate-topic', async (c) => {
   const settings = await getSettings(c.env.DB, c.env);
   if (!settings.gemini_api_key) return errorResponse('کلید Gemini API تنظیم نشده. لطفاً به پنل تنظیمات بروید.', 400, 'no_api_key');
 
-  const prompt = PROMPTS.generateTopic(title, body.project_name);
+  // ساختن پرامپت با قالب سفارشی کاربر
+  const projectContext = body.project_name ? ` (در حوزه‌ی ${body.project_name})` : '';
+  const prompt = fillTemplate(settings.prompt_generate_topic, {
+    title,
+    project_context: projectContext,
+  });
+
   try {
     const response = await callGemini(settings.gemini_api_key, prompt, {
-      systemPrompt: 'تو یک استاد دانشگاه پزشکی فارسی‌زبان هستی. فقط به فارسی پاسخ بده.',
+      systemPrompt: settings.system_prompt,
       temperature: 0.7,
       maxTokens: 4096,
     });
@@ -60,64 +67,6 @@ aiRoutes.post('/generate-topic', async (c) => {
   }
 });
 
-// POST /api/ai/generate-flashcards
-// Body: { topic_title: string, count?: number, project_id?, topic_id? }
-aiRoutes.post('/generate-flashcards', async (c) => {
-  const user = c.get('user')!;
-  const body = await c.req.json().catch(() => ({} as any));
-  const topicTitle = body.topic_title?.trim();
-  if (!topicTitle) return errorResponse('عنوان الزامی است', 400);
-
-  const settings = await getSettings(c.env.DB, c.env);
-  if (!settings.gemini_api_key) return errorResponse('کلید Gemini API تنظیم نشده', 400, 'no_api_key');
-
-  const count = Math.min(30, Math.max(3, body.count || 10));
-  const prompt = PROMPTS.generateFlashcards(topicTitle, count);
-
-  try {
-    const response = await callGemini(settings.gemini_api_key, prompt, {
-      systemPrompt: 'تو یک متخصص آموزش پزشکی فارسی‌زبان هستی. خروجی فقط CSV بدون توضیح.',
-      temperature: 0.6,
-      maxTokens: 2048,
-    });
-
-    // parse CSV تولید شده
-    const { parseFlashcardsCSV } = await import('../lib/csv');
-    const parsed = parseFlashcardsCSV(response.text);
-    if (parsed.cards.length === 0) {
-      return errorResponse('AI خروجی معتبری تولید نکرد. دوباره تلاش کنید.', 500);
-    }
-
-    // اگه project_id یا topic_id دادیم، مستقیم ذخیره کن
-    if (body.project_id || body.topic_id) {
-      const stmt = c.env.DB.prepare(
-        `INSERT INTO flashcards(user_id, project_id, topic_id, front, back, tags, next_review_at)
-         VALUES(?, ?, ?, ?, ?, ?, datetime('now'))`
-      );
-      const batch = parsed.cards.map(card => stmt.bind(
-        user.id, body.project_id || null, body.topic_id || null,
-        card.front, card.back, card.tags || null
-      ));
-      await c.env.DB.batch(batch);
-    }
-
-    await c.env.DB.prepare(
-      `INSERT INTO ai_logs(user_id, topic_id, prompt, response_excerpt, model, tokens_used, status)
-       VALUES(?, ?, ?, ?, 'gemini-2.5-flash', ?, 'success')`
-    ).bind(user.id, body.topic_id || null, prompt.slice(0, 500), response.text.slice(0, 200), response.usage?.totalTokens || null).run();
-
-    return json({
-      ok: true,
-      flashcards: parsed.cards,
-      count: parsed.cards.length,
-      raw_csv: response.text,
-      saved: !!(body.project_id || body.topic_id),
-    });
-  } catch (e: any) {
-    return errorResponse(`خطا در تولید فلش‌کارت: ${e?.message || 'unknown'}`, 500, 'ai_error');
-  }
-});
-
 // POST /api/ai/improve
 // Body: { content: string }
 aiRoutes.post('/improve', async (c) => {
@@ -128,8 +77,11 @@ aiRoutes.post('/improve', async (c) => {
   const settings = await getSettings(c.env.DB, c.env);
   if (!settings.gemini_api_key) return errorResponse('کلید Gemini API تنظیم نشده', 400, 'no_api_key');
 
+  const prompt = fillTemplate(settings.prompt_improve, { content: body.content });
+
   try {
-    const response = await callGemini(settings.gemini_api_key, PROMPTS.improveContent(body.content), {
+    const response = await callGemini(settings.gemini_api_key, prompt, {
+      systemPrompt: settings.system_prompt,
       temperature: 0.4,
       maxTokens: 4096,
     });
@@ -153,8 +105,11 @@ aiRoutes.post('/summarize', async (c) => {
   const settings = await getSettings(c.env.DB, c.env);
   if (!settings.gemini_api_key) return errorResponse('کلید Gemini API تنظیم نشده', 400, 'no_api_key');
 
+  const prompt = fillTemplate(settings.prompt_summarize, { content: body.content });
+
   try {
-    const response = await callGemini(settings.gemini_api_key, PROMPTS.summarizeTopic(body.content), {
+    const response = await callGemini(settings.gemini_api_key, prompt, {
+      systemPrompt: settings.system_prompt,
       temperature: 0.3,
       maxTokens: 500,
     });

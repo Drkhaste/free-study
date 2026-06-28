@@ -2105,6 +2105,13 @@ Pages.settings = async function() {
             <p class="font-bold mb-2 text-slate-800 dark:text-white">۳. نمایش در سایت (Frontend)</p>
             <p>یک برگه جدید در وردپرس بسازید و شرت‌کد <code>[medical_edu_dashboard]</code> را در آن قرار دهید. آیدی یا آدرس آن برگه را در بخش «تنظیمات داشبورد» ذخیره کنید تا ریدایرکت‌ها به درستی انجام شود.</p>
           </div>
+          <div class="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-700">
+            <p class="font-bold mb-2 text-brand-800 dark:text-brand-300">💡 راهنمای شرت‌کدها</p>
+            <ul class="list-disc list-inside space-y-1">
+              <li><code>[medical_edu_dashboard]</code>: نمایش داشبورد کامل (فقط برای مدیران)</li>
+              <li><code>[medical_edu_login]</code>: نمایش فرم ورود اختصاصی</li>
+            </ul>
+          </div>
         </div>
       </div>
 

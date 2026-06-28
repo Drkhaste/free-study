@@ -80,6 +80,7 @@ class MedicalEdu {
     }
 
     public function login_shortcode() {
+        $this->enqueue_assets();
         ob_start();
         include MED_EDU_PATH . 'templates/login-form.php';
         return ob_get_clean();

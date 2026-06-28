@@ -1,4 +1,11 @@
-<div class="medical-edu-login-container">
+<div class="medical-edu-login-container medical-edu-app-root">
+    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-cyan-50 to-purple-50 p-4">
+    <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+    <div class="text-center mb-8">
+          <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-cyan-500 items-center justify-center text-white text-3xl font-bold mb-4 shadow-xl shadow-brand-500/30">پ</div>
+          <h1 class="text-2xl font-bold text-slate-800">آکادمی پزشکی</h1>
+          <p class="text-slate-500 mt-1">ورود به پنل ادمین</p>
+    </div>
     <form id="auth-form" class="space-y-4">
         <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">نام کاربری</label>
@@ -15,8 +22,10 @@
         <button type="submit" class="w-full py-3 bg-gradient-to-l from-brand-600 to-cyan-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-brand-500/30 transition-all">
             ورود
         </button>
-        <div id="login-error" class="text-red-500 text-sm hidden"></div>
+        <div id="login-error" class="text-red-500 text-sm hidden mt-2 text-center"></div>
     </form>
+    </div>
+    </div>
 </div>
 
 <script>

@@ -58,6 +58,7 @@ app.use('/api/review/*', authMiddleware);
 app.use('/api/ai/*', authMiddleware);
 app.use('/api/settings/*', authMiddleware);
 app.use('/api/export/*', authMiddleware);
+app.use('/api/tasks/*', authMiddleware);
 
 // --- health check ---
 app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));

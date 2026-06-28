@@ -9,16 +9,19 @@
   --app-font-size: 16px;
   --app-font-family: 'Vazirmatn', system-ui, sans-serif;
   --app-line-height: 1.7;
+  --sidebar-width: 288px;
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   font-family: var(--app-font-family);
   font-size: var(--app-font-size);
   line-height: var(--app-line-height);
   -webkit-font-smoothing: antialiased;
   transition: font-size 0.2s, font-family 0.2s, line-height 0.2s;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* scrollbar */
@@ -103,8 +106,11 @@ body {
 /* ============================================================
    سایدبار و محتوا
    ============================================================ */
-.sidebar { transition: transform 0.3s ease, width 0.3s ease; }
-.sidebar.collapsed { width: 80px; }
+.sidebar {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: var(--sidebar-width);
+}
+.sidebar.collapsed { --sidebar-width: 80px; }
 .sidebar.collapsed .p-5 h1,
 .sidebar.collapsed .p-5 p,
 .sidebar.collapsed .sidebar-link span,
@@ -115,17 +121,29 @@ body {
 .sidebar.collapsed .p-3.border-t .flex { justify-content: center; padding: 0; }
 .sidebar.collapsed .p-3.border-t .flex-1 { display: none; }
 
-.main-content { transition: margin 0.3s ease; }
+.main-content {
+  transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: var(--sidebar-width);
+}
 
 .sidebar-overlay { transition: opacity 0.3s; opacity: 0; pointer-events: none; }
 .sidebar-overlay.show { opacity: 1; pointer-events: auto; }
 
 @media (max-width: 768px) {
-  /* سایدبار در موبایل مخفی (translateX مثبت = به راست، چون سایدبار راست‌چین است) */
-  .sidebar { transform: translateX(100%); width: 280px !important; }
-  .sidebar.open { transform: translateX(0); }
-  .sidebar.collapsed { transform: translateX(100%); }
-  .main-content { margin-right: 0 !important; margin-left: 0 !important; }
+  /* سایدبار در موبایل کاملا مخفی */
+  .sidebar {
+    transform: translateX(110%);
+    width: 288px !important;
+    visibility: hidden;
+    transition: transform 0.3s ease, visibility 0s 0.3s;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.3s ease, visibility 0s;
+  }
+  .sidebar.collapsed { transform: translateX(110%); }
+  .main-content { margin-right: 0 !important; margin-left: 0 !important; width: 100vw; }
   .mobile-menu-btn { display: flex !important; }
   .sidebar-overlay { display: block; }
 }

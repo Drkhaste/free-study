@@ -7,6 +7,11 @@
    - Added: /blog navigation does full page reload
    ============================================================ */
 
+// Disable automatic redirection by certain libraries if any
+window.JALALI_MOMENT_CONFIG = {
+  timezone: 'Asia/Tehran'
+};
+
 // ---- API client ----
 const API = {
   async request(method, path, body = null) {
@@ -221,7 +226,6 @@ window.toggleSidebar = function() {
   } else {
     // Desktop: toggle collapsed state
     const isCollapsed = sidebar.classList.toggle('collapsed');
-    if (main) main.classList.toggle('md:mr-0', isCollapsed);
     localStorage.setItem(SIDEBAR_KEY, isCollapsed ? '1' : '0');
   }
 };
@@ -237,9 +241,7 @@ function applySidebarState() {
   const isCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
   if (isCollapsed && window.innerWidth > 768) {
     const sidebar = document.querySelector('.sidebar');
-    const main = document.querySelector('.main-content');
     if (sidebar) sidebar.classList.add('collapsed');
-    if (main) main.classList.add('md:mr-0');
   }
 }
 
@@ -404,7 +406,7 @@ function layout(content) {
       </aside>
 
       <!-- Main content -->
-      <main class="main-content flex-1 md:mr-72 min-h-screen">
+      <main class="main-content flex-1 min-h-screen">
         <div id="page-content" class="p-4 md:p-8 max-w-7xl mx-auto fade-in page-padding">
           ${content}
         </div>
@@ -920,7 +922,7 @@ window.initHighlighter = function(topicId) {
   const contentArea = document.getElementById('content-to-highlight');
   if (!contentArea) return;
 
-  contentArea.addEventListener('mouseup', (e) => {
+  const handleSelection = () => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
     if (!text) {
@@ -931,10 +933,22 @@ window.initHighlighter = function(topicId) {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
+    // Position menu: center horizontally, above the selection
     showHighlightMenu(rect.left + (rect.width / 2), rect.top + window.scrollY, topicId);
+  };
+
+  contentArea.addEventListener('mouseup', handleSelection);
+  contentArea.addEventListener('touchend', (e) => {
+    // Small delay to allow selection to finalize on mobile
+    setTimeout(handleSelection, 100);
   });
 
   document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#highlight-menu') && !e.target.closest('#content-to-highlight')) {
+      removeHighlightMenu();
+    }
+  });
+  document.addEventListener('touchstart', (e) => {
     if (!e.target.closest('#highlight-menu') && !e.target.closest('#content-to-highlight')) {
       removeHighlightMenu();
     }

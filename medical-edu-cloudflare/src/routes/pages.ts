@@ -69,6 +69,7 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
 
   <!-- marked.js + highlight.js for markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jalali-moment/dist/jalali-moment.browser.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -119,7 +120,7 @@ pageRoutes.get('/flashcards', async (c) => c.html(await renderShell(c.env, { tit
 pageRoutes.get('/review', async (c) => c.html(await renderShell(c.env, { title: 'مرور', page: 'app' })));
 pageRoutes.get('/settings', async (c) => c.html(await renderShell(c.env, { title: 'تنظیمات', page: 'app' })));
 pageRoutes.get('/ai', async (c) => c.html(await renderShell(c.env, { title: 'هوش مصنوعی', page: 'app' })));
-pageRoutes.get('/calendar', async (c) => c.html(await renderShell(c.env, { title: 'تقویم و تسک‌ها', page: 'app', extraHead: '<script src="https://cdn.jsdelivr.net/npm/jalali-moment/dist/jalali-moment.browser.js"></script>' })));
+pageRoutes.get('/calendar', async (c) => c.html(await renderShell(c.env, { title: 'تقویم و تسک‌ها', page: 'app' })));
 
 // ====== Blog pages (server-rendered for SEO) ======
 pageRoutes.get('/blog', async (c) => {

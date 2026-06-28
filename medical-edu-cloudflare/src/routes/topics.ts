@@ -169,6 +169,24 @@ topicRoutes.patch('/:id', async (c) => {
   return json({ topic });
 });
 
+// PATCH /api/topics/:id/highlight
+topicRoutes.patch('/:id/highlight', async (c) => {
+  const user = c.get('user')!;
+  const id = parseInt(c.req.param('id'), 10);
+  const body = await c.req.json().catch(() => ({} as any));
+  const { html_content } = body;
+
+  if (!html_content) return errorResponse('محتوا الزامی است', 400);
+
+  // ما فقط content_html را بروز میکنیم چون هایلایت کردن در Markdown پیچیده است
+  // و این هایلایت‌ها فعلاً برای نمایش حین مطالعه هستند.
+  await c.env.DB.prepare(
+    `UPDATE topics SET content_html = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`
+  ).bind(html_content, id, user.id).run();
+
+  return json({ ok: true });
+});
+
 // DELETE /api/topics/:id
 topicRoutes.delete('/:id', async (c) => {
   const user = c.get('user')!;

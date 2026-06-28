@@ -69,6 +69,7 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
 
   <!-- marked.js + highlight.js for markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jalali-moment/dist/jalali-moment.browser.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -83,8 +84,18 @@ async function renderShell(env: any, opts: { title: string; page: string; descri
   <div id="app"></div>
   <!-- Font settings button (floating, available on all pages) -->
   <button onclick="window.openFontSettings ? window.openFontSettings() : (window.location.href='/dashboard')" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
   </button>
+  <script>
+    (function() {
+      const theme = localStorage.getItem('app_theme');
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+      const font = JSON.parse(localStorage.getItem('app_font_settings') || '{}');
+      if (font.fontSize) document.documentElement.style.setProperty('--app-font-size', font.fontSize + 'px');
+      if (font.fontFamily) document.documentElement.style.setProperty('--app-font-family', font.fontFamily);
+      if (font.lineHeight) document.documentElement.style.setProperty('--app-line-height', font.lineHeight);
+    })();
+  </script>
   <script>window.__PAGE__ = ${JSON.stringify(opts.page)};</script>
   <script type="module" src="/static/app.js"></script>
 </body>
@@ -109,6 +120,7 @@ pageRoutes.get('/flashcards', async (c) => c.html(await renderShell(c.env, { tit
 pageRoutes.get('/review', async (c) => c.html(await renderShell(c.env, { title: 'مرور', page: 'app' })));
 pageRoutes.get('/settings', async (c) => c.html(await renderShell(c.env, { title: 'تنظیمات', page: 'app' })));
 pageRoutes.get('/ai', async (c) => c.html(await renderShell(c.env, { title: 'هوش مصنوعی', page: 'app' })));
+pageRoutes.get('/calendar', async (c) => c.html(await renderShell(c.env, { title: 'تقویم و تسک‌ها', page: 'app' })));
 
 // ====== Blog pages (server-rendered for SEO) ======
 pageRoutes.get('/blog', async (c) => {
@@ -135,8 +147,8 @@ pageRoutes.get('/blog', async (c) => {
     LIMIT ? OFFSET ?
   `).bind(...binds, limit, offset).all<any>();
 
-  const total = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM topics t WHERE ${where.join(' AND ')}`).bind(...binds).first<{ c: number }>();
-  const totalPages = Math.ceil((total?.c || 0) / limit);
+  const countRes = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM topics t WHERE ${where.join(' AND ')}`).bind(...binds).first<{ c: number }>();
+  const totalPages = Math.ceil((countRes?.c || 0) / limit);
 
   const tagsRes = await c.env.DB.prepare(`SELECT tags FROM topics WHERE status='published' AND tags IS NOT NULL AND tags != ''`).all<{ tags: string }>();
   const tags = new Map<string, number>();
@@ -242,18 +254,18 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
-  <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40 backdrop-blur-lg bg-white/80 dark:bg-slate-800/80">
-    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-2 md:gap-3">
-        <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg md:text-xl">پ</div>
-        <div>
-          <h1 class="font-bold text-base md:text-lg">${escapeHtml(s.site_title)}</h1>
-          <p class="text-xs text-slate-500 hidden md:block">وبلاگ آموزش پزشکی</p>
+  <header class="bg-white/80 dark:bg-slate-800/80 shadow-sm sticky top-0 z-40 backdrop-blur-lg border-b border-slate-200/50 dark:border-slate-700/50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 group">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-transform">پ</div>
+        <div class="leading-tight">
+          <h1 class="font-bold text-lg md:text-xl bg-gradient-to-l from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">${escapeHtml(s.site_title)}</h1>
+          <p class="text-[10px] md:text-xs text-slate-500 font-medium uppercase tracking-wider">Medical Academy</p>
         </div>
       </a>
-      <nav class="flex items-center gap-1 md:gap-2">
-        <a href="/dashboard" class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">داشبورد</a>
-        <a href="/login" class="px-3 md:px-4 py-2 text-xs md:text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">ورود</a>
+      <nav class="flex items-center gap-2">
+        <a href="/dashboard" class="hidden sm:flex px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">داشبورد</a>
+        <a href="/login" class="px-5 py-2.5 text-sm font-bold bg-brand-600 text-white rounded-xl hover:bg-brand-700 shadow-md shadow-brand-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0">ورود</a>
       </nav>
     </div>
   </header>
@@ -299,11 +311,35 @@ async function renderBlogList(env: any, posts: any[], opts: { page: number; tota
   </footer>
 
   <!-- Font settings button (floating) -->
-  <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-  </button>
+  <div class="fixed bottom-20 left-5 z-40 flex flex-col gap-3">
+    <button id="blog-theme-toggle" onclick="BlogTheme.toggle()" class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20" title="تغییر تم">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+    </button>
+    <button onclick="BlogFontSettings.open()" class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20" title="تنظیمات متن">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </button>
+  </div>
 
   <script>
+    const BlogTheme = {
+      key: 'app_theme',
+      apply() {
+        if (localStorage.getItem(this.key) === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.getElementById('blog-theme-toggle').innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>';
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.getElementById('blog-theme-toggle').innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
+        }
+      },
+      toggle() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(this.key, isDark ? 'dark' : 'light');
+        this.apply();
+      }
+    };
+    BlogTheme.apply();
+
     // Inline font settings for blog pages (no app.js dependency)
     const BlogFontSettings = {
       key: 'app_font_settings',
@@ -386,13 +422,13 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
-  <header class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-40">
-    <div class="max-w-3xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-      <a href="/blog" class="flex items-center gap-2 text-xs md:text-sm text-slate-500 hover:text-brand-600">
+  <header class="bg-white/80 dark:bg-slate-800/80 shadow-sm sticky top-0 z-40 backdrop-blur-lg border-b border-slate-200/50 dark:border-slate-700/50">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/blog" class="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        وبلاگ
+        بازگشت به وبلاگ
       </a>
-      <a href="/dashboard" class="text-xs md:text-sm text-brand-600 hover:underline">داشبورد</a>
+      <a href="/dashboard" class="text-sm font-bold text-brand-600 hover:text-brand-700 transition-colors">داشبورد</a>
     </div>
   </header>
 
@@ -466,11 +502,38 @@ async function renderBlogPost(env: any, topic: any, related: any[]): Promise<str
   </script>
 
   <!-- Font settings button (floating) -->
-  <button onclick="BlogFontSettings.open()" class="font-settings-btn" title="تنظیمات متن" aria-label="تنظیمات متن">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-  </button>
+  <div class="fixed bottom-20 left-5 z-40 flex flex-col gap-3">
+    <button id="post-theme-toggle" onclick="BlogTheme.toggle()" class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20" title="تغییر تم">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+    </button>
+    <button onclick="BlogFontSettings.open()" class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20" title="تنظیمات متن">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </button>
+  </div>
 
   <script>
+    const BlogTheme = {
+      key: 'app_theme',
+      apply() {
+        const isDark = localStorage.getItem(this.key) === 'dark';
+        if (isDark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+
+        const btn = document.getElementById('post-theme-toggle') || document.getElementById('blog-theme-toggle');
+        if (btn) {
+          btn.innerHTML = isDark ?
+            '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>' :
+            '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
+        }
+      },
+      toggle() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(this.key, isDark ? 'dark' : 'light');
+        this.apply();
+      }
+    };
+    BlogTheme.apply();
+
     // Inline font settings for blog pages
     const BlogFontSettings = {
       key: 'app_font_settings',
@@ -551,6 +614,7 @@ function formatDateFa(iso?: string): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
     const months = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
     return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   } catch { return iso; }

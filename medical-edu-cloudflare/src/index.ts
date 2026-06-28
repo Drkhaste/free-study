@@ -20,6 +20,7 @@ import { blogRoutes } from './routes/blog';
 import { settingsRoutes } from './routes/settings';
 import { exportRoutes } from './routes/exports';
 import { telegramRoutes } from './routes/telegram';
+import { taskRoutes } from './routes/tasks';
 import { pageRoutes } from './routes/pages';
 import { staticRoutes } from './static';
 
@@ -57,6 +58,7 @@ app.use('/api/review/*', authMiddleware);
 app.use('/api/ai/*', authMiddleware);
 app.use('/api/settings/*', authMiddleware);
 app.use('/api/export/*', authMiddleware);
+app.use('/api/tasks/*', authMiddleware);
 
 // --- health check ---
 app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
@@ -71,6 +73,7 @@ app.route('/api/ai', aiRoutes);
 app.route('/api/blog', blogRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/export', exportRoutes);
+app.route('/api/tasks', taskRoutes);
 
 // --- static assets (frontend) ---
 // فایل‌های static به صورت embedded در worker سرو میشن

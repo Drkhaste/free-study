@@ -7,6 +7,11 @@
    - Added: /blog navigation does full page reload
    ============================================================ */
 
+// Disable automatic redirection by certain libraries if any
+window.JALALI_MOMENT_CONFIG = {
+  timezone: 'Asia/Tehran'
+};
+
 // ---- API client ----
 const API = {
   async request(method, path, body = null) {
@@ -73,6 +78,33 @@ function applyFontSettings() {
   if (s.lineHeight) root.style.setProperty('--app-line-height', s.lineHeight);
 }
 applyFontSettings();
+
+// ============================================================
+// Dark mode toggle
+// ============================================================
+const THEME_KEY = 'app_theme';
+function applyTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || 'light';
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+applyTheme();
+
+window.toggleTheme = function() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+
+  // Update theme icons in the header
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = isDark ?
+      '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>' :
+      '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
+  }
+};
 
 window.openFontSettings = function() {
   const current = loadFontSettings();
@@ -176,14 +208,26 @@ window.resetFontSettings = function() {
 };
 
 // ============================================================
-// Mobile sidebar toggle
+// Sidebar toggle (Mobile & Desktop)
 // ============================================================
+const SIDEBAR_KEY = 'app_sidebar_collapsed';
+
 window.toggleSidebar = function() {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.querySelector('.sidebar-overlay');
+  const main = document.querySelector('.main-content');
   if (!sidebar) return;
-  const isOpen = sidebar.classList.toggle('open');
-  if (overlay) overlay.classList.toggle('show', isOpen);
+
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    const isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('show', isOpen);
+  } else {
+    // Desktop: toggle collapsed state
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    localStorage.setItem(SIDEBAR_KEY, isCollapsed ? '1' : '0');
+  }
 };
 
 window.closeSidebar = function() {
@@ -192,6 +236,14 @@ window.closeSidebar = function() {
   sidebar?.classList.remove('open');
   overlay?.classList.remove('show');
 };
+
+function applySidebarState() {
+  const isCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
+  if (isCollapsed && window.innerWidth > 768) {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.classList.add('collapsed');
+  }
+}
 
 // ============================================================
 // Router
@@ -209,6 +261,7 @@ const routes = [
   { pattern: /^\/review$/, handler: () => Pages.review() },
   { pattern: /^\/ai$/, handler: () => Pages.ai() },
   { pattern: /^\/settings$/, handler: () => Pages.settings() },
+  { pattern: /^\/calendar$/, handler: () => Pages.calendar() },
 ];
 
 async function router() {
@@ -285,16 +338,37 @@ function layout(content) {
   const isAdmin = state.user?.role === 'admin';
   const initial = state.user?.display_name?.[0] || state.user?.username?.[0] || 'U';
   return `
-    <button onclick="window.toggleSidebar()" class="mobile-menu-btn md:hidden fixed top-4 right-4 z-40 w-11 h-11 bg-white dark:bg-slate-800 rounded-xl shadow-lg flex items-center justify-center border border-slate-200 dark:border-slate-700">
-      <svg class="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
+    <!-- Top Header for Mobile & Desktop -->
+    <header class="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-40 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between px-4">
+      <div class="flex items-center gap-3">
+        <button onclick="window.toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="md:hidden flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">پ</div>
+          <span class="font-bold text-sm">آکادمی پزشکی</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="theme-toggle-btn" onclick="window.toggleTheme()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all" title="تغییر تم">
+          ${document.documentElement.classList.contains('dark') ?
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>' :
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>'}
+        </button>
+        <button onclick="window.openFontSettings()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all" title="تنظیمات متن">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-cyan-400 flex items-center justify-center text-white font-bold text-xs">${initial}</div>
+      </div>
+    </header>
 
     <!-- Overlay -->
-    <div onclick="window.closeSidebar()" class="sidebar-overlay md:hidden fixed inset-0 bg-black/50 z-20"></div>
+    <div onclick="window.closeSidebar()" class="sidebar-overlay fixed inset-0 bg-black/50 z-45 hidden"></div>
 
-    <div class="flex min-h-screen">
+    <div class="flex min-h-screen pt-16">
       <!-- Sidebar (RTL: right side) -->
-      <aside class="sidebar w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-30 flex flex-col">
+      <aside class="sidebar w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 fixed top-0 right-0 bottom-0 z-50 flex flex-col">
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <a href="/dashboard" class="flex items-center gap-3" data-link>
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">پ</div>
@@ -313,6 +387,7 @@ function layout(content) {
           ${sidebarLink('/flashcards', 'فلش‌کارت‌ها', 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10')}
           ${sidebarLink('/review', 'مرور امروز', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z')}
           ${sidebarLink('/ai', 'دستیار هوش مصنوعی', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
+          ${sidebarLink('/calendar', 'تقویم و تسک‌ها', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z')}
           ${sidebarLink('/blog', 'وبلاگ', 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253')}
           ${isAdmin ? sidebarLink('/settings', 'تنظیمات', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z') : ''}
         </nav>
@@ -331,21 +406,16 @@ function layout(content) {
       </aside>
 
       <!-- Main content -->
-      <main class="main-content flex-1 md:mr-72 min-h-screen">
+      <main class="main-content flex-1 min-h-screen">
         <div id="page-content" class="p-4 md:p-8 max-w-7xl mx-auto fade-in page-padding">
           ${content}
         </div>
       </main>
     </div>
-
-    <!-- Font settings button (floating) -->
-    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-    </button>
   `;
 }
 
-function sidebarLink(href, label, icon, path) {
+function sidebarLink(href, label, path) {
   const active = window.location.pathname === href ? 'active' : '';
   return `<a href="${href}" data-link class="sidebar-link ${active} flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>
@@ -411,9 +481,6 @@ Pages.login = function() {
         <p class="text-center text-xs text-slate-400 mt-6">با ورود، شرایط استفاده را می‌پذیرید.</p>
       </div>
     </div>
-    <button onclick="window.openFontSettings()" class="font-settings-btn" title="تنظیمات متن">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-    </button>
   `;
 };
 
@@ -459,7 +526,10 @@ Pages.dashboard = async function() {
       <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-bold">پروژه‌های اخیر</h2>
-          <a href="/projects" data-link class="text-sm text-brand-600 hover:underline">همه</a>
+          <div class="flex gap-3">
+            <button onclick="quickCreatePost()" class="text-xs text-brand-600 font-bold hover:bg-brand-50 px-2 py-1 rounded-lg transition-colors">پست وبلاگ جدید</button>
+            <a href="/projects" data-link class="text-sm text-brand-600 hover:underline">همه</a>
+          </div>
         </div>
         <div id="dash-projects" class="space-y-2">${loadingCards(3)}</div>
       </div>
@@ -610,6 +680,15 @@ Pages.projects = async function() {
   } catch (err) { toast(err.message, 'error'); }
 };
 
+window.deleteProject = async function(id) {
+  if (!confirm('آیا از حذف این پروژه و تمام مباحث آن اطمینان دارید؟ این عمل غیرقابل بازگشت است.')) return;
+  try {
+    await API.del(`/api/projects/${id}`);
+    toast('پروژه حذف شد', 'success');
+    navigate('/projects');
+  } catch (err) { toast(err.message, 'error'); }
+};
+
 window.openProjectModal = function(project = null) {
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#ef4444', '#14b8a6'];
   const modal = document.createElement('div');
@@ -693,7 +772,12 @@ Pages.projectView = async function(id) {
           <h1 class="text-lg md:text-2xl font-bold truncate">${escapeHtml(proj.project.title)}</h1>
           <p class="text-sm text-slate-500 line-clamp-1">${escapeHtml(proj.project.description || '')}</p>
         </div>
-        <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 flex-shrink-0">ویرایش</button>
+        <div class="flex items-center gap-2">
+          <button onclick='openProjectModal(${JSON.stringify(proj.project).replace(/'/g, "&#39;")})' class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 flex-shrink-0">ویرایش</button>
+          <button onclick="deleteProject(${proj.project.id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg flex-shrink-0" title="حذف پروژه">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
       </div>
     `;
 
@@ -796,14 +880,244 @@ Pages.topicView = async function(id) {
           ${statusBadge(t.status)}
           <a href="/topics/${t.id}/edit" data-link class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700">ویرایش</a>
           ${t.status === 'draft' ? `<button onclick="publishTopic(${t.id})" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">انتشار در وبلاگ</button>` : `<a href="/blog/${t.slug}" class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg">مشاهده در وبلاگ</a>`}
+          <button onclick="deleteTopic(${t.id}, ${t.project_id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="حذف مبحث">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
       <div class="flex items-center gap-3 text-sm text-slate-400 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700 flex-wrap">
         <span>${t.word_count} کلمه</span>
         ${t.tags ? `<span>•</span><span>${escapeHtml(t.tags)}</span>` : ''}
       </div>
-      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700 mb-8 relative" id="content-to-highlight">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+
+      <div class="mt-12">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold flex items-center gap-2">
+            <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10"/></svg>
+            فلش‌کارت‌های این مبحث
+          </h2>
+          <div class="flex gap-2">
+            <button onclick="importCSV(${t.project_id}, ${t.id})" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">📥 ایمپورت CSV</button>
+            <button onclick="addFlashcardModal(${t.project_id}, ${t.id})" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">➕ کارت جدید</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 mb-6 border-b border-slate-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap pb-1">
+          <button onclick="switchTopicTab('due', ${t.id})" id="tab-due" class="topic-tab active pb-2 text-sm font-bold border-b-2 border-brand-500 text-brand-600">مرور الان</button>
+          <button onclick="switchTopicTab('tomorrow', ${t.id})" id="tab-tomorrow" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">مرور فردا</button>
+          <button onclick="switchTopicTab('three_days', ${t.id})" id="tab-three_days" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">مرور ۳ روز بعد</button>
+          <button onclick="switchTopicTab('all', ${t.id})" id="tab-all" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">همه</button>
+        </div>
+        <div id="topic-flashcards" class="space-y-6 max-w-2xl mx-auto">
+          ${loadingCards(2)}
+        </div>
+      </div>
     `;
+    loadTopicFlashcards(t.id, 'due');
+    initHighlighter(id);
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.initHighlighter = function(topicId) {
+  const contentArea = document.getElementById('content-to-highlight');
+  if (!contentArea) return;
+
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (!text) {
+      removeHighlightMenu();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Position menu: center horizontally, above the selection
+    showHighlightMenu(rect.left + (rect.width / 2), rect.top + window.scrollY, topicId);
+  };
+
+  contentArea.addEventListener('mouseup', handleSelection);
+  contentArea.addEventListener('touchend', (e) => {
+    // Small delay to allow selection to finalize on mobile
+    setTimeout(handleSelection, 100);
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#highlight-menu') && !e.target.closest('#content-to-highlight')) {
+      removeHighlightMenu();
+    }
+  });
+  document.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('#highlight-menu') && !e.target.closest('#content-to-highlight')) {
+      removeHighlightMenu();
+    }
+  });
+};
+
+function showHighlightMenu(x, y, topicId) {
+  removeHighlightMenu();
+  const menu = document.createElement('div');
+  menu.id = 'highlight-menu';
+  menu.className = 'fixed z-[100] bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 flex gap-2 -translate-x-1/2 -translate-y-full mb-3';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  const colors = [
+    { name: 'yellow', hex: '#fef08a' },
+    { name: 'green', hex: '#bbf7d0' },
+    { name: 'blue', hex: '#bfdbfe' },
+    { name: 'pink', hex: '#fbcfe8' }
+  ];
+
+  colors.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = `w-8 h-8 rounded-full border-2 border-white dark:border-slate-700 hover:scale-110 transition-transform`;
+    btn.style.backgroundColor = c.hex;
+    btn.onclick = () => applyHighlight(c.name, topicId);
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+}
+
+function removeHighlightMenu() {
+  document.getElementById('highlight-menu')?.remove();
+}
+
+async function applyHighlight(colorClass, topicId) {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  const mark = document.createElement('mark');
+  mark.className = `hl-${colorClass}`;
+
+  try {
+    range.surroundContents(mark);
+    removeHighlightMenu();
+    selection.removeAllRanges();
+
+    // Save the new HTML
+    const contentArea = document.getElementById('content-to-highlight');
+    await API.patch(`/api/topics/${topicId}/highlight`, {
+      html_content: contentArea.innerHTML
+    });
+    toast('هایلایت ذخیره شد', 'success');
+  } catch (e) {
+    toast('خطا: متن انتخابی شامل تگ‌های HTML است. لطفاً قطعه کوچکتری را انتخاب کنید.', 'warning');
+  }
+}
+
+window.switchTopicTab = function(filter, topicId) {
+  document.querySelectorAll('.topic-tab').forEach(btn => {
+    btn.classList.remove('active', 'border-brand-500', 'text-brand-600');
+    btn.classList.add('border-transparent', 'text-slate-400');
+  });
+  const active = document.getElementById(`tab-${filter}`);
+  if (active) {
+    active.classList.add('active', 'border-brand-500', 'text-brand-600');
+    active.classList.remove('border-transparent', 'text-slate-400');
+  }
+  loadTopicFlashcards(topicId, filter);
+};
+
+window.loadTopicFlashcards = async function(topicId, filter = 'all') {
+  try {
+    const data = await API.get(`/api/flashcards?topic_id=${topicId}&limit=100`);
+    const container = document.getElementById('topic-flashcards');
+
+    let cards = data.flashcards || [];
+    const now = new Date();
+    const tomorrowEnd = new Date();
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    tomorrowEnd.setDate(now.getDate() + 1);
+
+    if (filter === 'due') {
+      cards = cards.filter(c => new Date(c.next_review_at) <= now);
+    } else if (filter === 'tomorrow') {
+      cards = cards.filter(c => {
+        const d = new Date(c.next_review_at);
+        return d > now && d <= tomorrowEnd;
+      });
+    } else if (filter === 'three_days') {
+      const threeDaysEnd = new Date();
+      threeDaysEnd.setHours(23, 59, 59, 999);
+      threeDaysEnd.setDate(now.getDate() + 3);
+      cards = cards.filter(c => {
+        const d = new Date(c.next_review_at);
+        return d > tomorrowEnd && d <= threeDaysEnd;
+      });
+    }
+
+    if (!cards.length) {
+      let emptyMsg = 'هنوز برای این مبحث فلش‌کارتی نساخته‌اید.';
+      if (filter === 'due') emptyMsg = 'تمام کارت‌ها مرور شده‌اند! 🎉';
+      else if (filter === 'tomorrow') emptyMsg = 'کارتی برای فردا نیست.';
+      else if (filter === 'three_days') emptyMsg = 'کارتی برای ۳ روز آینده نیست.';
+
+      container.innerHTML = `<div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400">
+        <p>${emptyMsg}</p>
+      </div>`;
+      return;
+    }
+    container.innerHTML = cards.map(c => `
+      <div class="topic-card-container transition-all duration-300">
+        <div class="flip-card" id="card-${c.id}" onclick="this.classList.toggle('flipped')">
+          <div class="flip-card-inner" style="min-height: 200px;">
+            <div class="flip-card-front bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer">
+              <span class="text-[10px] uppercase tracking-widest text-slate-400 mb-4 font-bold">سوال</span>
+              <p class="text-lg font-bold">${escapeHtml(c.front)}</p>
+              <div class="mt-6 text-[10px] text-brand-600 font-bold opacity-50">برای مشاهده پاسخ کلیک کنید</div>
+            </div>
+            <div class="flip-card-back bg-gradient-to-br from-brand-600 to-cyan-600 text-white rounded-2xl p-6 shadow-lg flex flex-col items-center justify-center text-center">
+              <span class="text-[10px] uppercase tracking-widest opacity-70 mb-4 font-bold">پاسخ</span>
+              <p class="text-lg font-medium">${escapeHtml(c.back)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 mt-3">
+          <div class="flex-1 grid grid-cols-3 gap-2">
+            <button onclick="answerTopicCard(${c.id}, 'easy', event, ${topicId})" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'good', event, ${topicId})" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'again', event, ${topicId})" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
+          </div>
+          <button onclick="deleteFlashcard(${c.id}, ${topicId})" class="p-2 text-slate-300 hover:text-red-500 transition-colors" title="حذف کارت">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.answerTopicCard = async function(cardId, level, event, topicId) {
+  event.stopPropagation();
+  try {
+    await API.post(`/api/review/quick-answer`, { card_id: cardId, level });
+    toast('ثبت شد', 'success');
+
+    // انیمیشن بصری کوچک برای تایید
+    const container = event.target.closest('.topic-card-container');
+    if (container) {
+      container.style.opacity = '0.5';
+      container.style.transform = 'scale(0.95)';
+      container.style.pointerEvents = 'none';
+    }
+
+    setTimeout(() => {
+      const activeTab = document.querySelector('.topic-tab.active')?.id.replace('tab-', '') || 'due';
+      window.loadTopicFlashcards(topicId, activeTab);
+    }, 400);
+  } catch (err) { toast(err.message, 'error'); }
+};
+
+window.deleteTopic = async function(id, projectId) {
+  if (!confirm('آیا از حذف این مبحث اطمینان دارید؟')) return;
+  try {
+    await API.del(`/api/topics/${id}`);
+    toast('مبحث حذف شد', 'success');
+    navigate(`/projects/${projectId}`);
   } catch (err) { toast(err.message, 'error'); }
 };
 
@@ -895,10 +1209,40 @@ Pages.topicEdit = async function(id) {
   });
 };
 
+window.quickCreatePost = async function() {
+  // Find or create 'Blog' project
+  try {
+    const { projects } = await API.get('/api/projects');
+    let blogProj = projects.find(p => p.title === 'وبلاگ');
+    if (!blogProj) {
+      blogProj = (await API.post('/api/projects', { title: 'وبلاگ', description: 'پست‌های مستقیم وبلاگ', color: '#ec4899' })).project;
+    }
+    const title = prompt('عنوان پست جدید:');
+    if (!title) return;
+
+    const res = await API.post('/api/topics', { title, project_id: blogProj.id, status: 'draft' });
+    navigate(`/topics/${res.topic.id}/edit`);
+  } catch (err) { toast(err.message, 'error'); }
+};
+
 window.saveTopic = async function(id, projectId) {
   const title = document.getElementById('topic-title').value.trim();
   if (!title) return toast('عنوان الزامی است', 'error');
-  if (!projectId && id === null) return toast('ابتدا یک پروژه بسازید', 'error');
+
+  // Auto-handling for project-less topics (e.g. from direct blog post creation)
+  let finalProjectId = projectId;
+  if (!finalProjectId && id === null) {
+    try {
+      const { projects } = await API.get('/api/projects');
+      let blogProj = projects.find(p => p.title === 'وبلاگ');
+      if (!blogProj) {
+        blogProj = (await API.post('/api/projects', { title: 'وبلاگ', description: 'پست‌های مستقیم وبلاگ', color: '#ec4899' })).project;
+      }
+      finalProjectId = blogProj.id;
+    } catch (e) {
+      return toast('ابتدا یک پروژه بسازید', 'error');
+    }
+  }
 
   const data = {
     title,
@@ -910,7 +1254,7 @@ window.saveTopic = async function(id, projectId) {
   try {
     let res;
     if (id) res = await API.put(`/api/topics/${id}`, data);
-    else res = await API.post('/api/topics', { ...data, project_id: projectId });
+    else res = await API.post('/api/topics', { ...data, project_id: finalProjectId });
     toast('ذخیره شد ✓', 'success');
     navigate(`/topics/${res.topic.id}`);
   } catch (err) { toast(err.message, 'error'); }
@@ -1016,11 +1360,17 @@ Pages.flashcards = async function() {
             <div class="flex-1 min-w-0">
               <p class="font-medium mb-1">${escapeHtml(c.front)}</p>
               <p class="text-sm text-slate-500 line-clamp-2">${escapeHtml(c.back)}</p>
-              ${c.tags ? `<p class="text-xs text-slate-400 mt-2">${escapeHtml(c.tags)}</p>` : ''}
+              <div class="flex items-center gap-2 mt-2">
+                <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded">${escapeHtml(c.topic_title || 'بدون مبحث')}</span>
+                ${c.tags ? `<p class="text-xs text-slate-400">${escapeHtml(c.tags)}</p>` : ''}
+              </div>
             </div>
-            <div class="flex flex-col items-end gap-1 text-xs flex-shrink-0">
+            <div class="flex flex-col items-end gap-2 text-xs flex-shrink-0">
               <span class="px-2 py-0.5 ${c.next_review_at <= new Date().toISOString() ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'} rounded">مرور ${c.repetitions >= 3 ? '✓' : new Date(c.next_review_at).toLocaleDateString('fa-IR')}</span>
-              <button onclick="resetCard(${c.id})" class="text-slate-400 hover:text-brand-600 text-xs">ریست</button>
+              <div class="flex items-center gap-2">
+                <button onclick="resetCard(${c.id})" class="text-slate-400 hover:text-brand-600">ریست</button>
+                <button onclick="deleteFlashcard(${c.id})" class="text-slate-400 hover:text-red-500">حذف</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1038,7 +1388,7 @@ Pages.flashcards = async function() {
 };
 
 // ---- Add flashcard (manual) ----
-window.addFlashcardModal = function() {
+window.addFlashcardModal = function(projectId = null, topicId = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
@@ -1050,6 +1400,16 @@ window.addFlashcardModal = function() {
         </button>
       </div>
       <form onsubmit="saveFlashcard(event)" class="space-y-4">
+        ${(!projectId || !topicId) ? `
+        <div>
+          <label class="block text-sm font-medium mb-1.5">انتخاب مبحث (الزامی)</label>
+          <select name="topic_id" required id="modal-fc-topic-id" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
+            <option value="">در حال بارگذاری مباحث...</option>
+          </select>
+        </div>` : `
+        <input type="hidden" name="project_id" value="${projectId}">
+        <input type="hidden" name="topic_id" value="${topicId}">
+        `}
         <div>
           <label class="block text-sm font-medium mb-1.5">سوال / صورت کارت</label>
           <textarea name="front" required rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="مثلاً: تعریف نارسایی قلبی؟"></textarea>
@@ -1071,48 +1431,89 @@ window.addFlashcardModal = function() {
   `;
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  if (!projectId || !topicId) {
+    API.get('/api/topics?limit=200').then(data => {
+      const select = document.getElementById('modal-fc-topic-id');
+      if (select) {
+        if (!data.topics?.length) {
+          select.innerHTML = '<option value="">ابتدا یک مبحث بسازید</option>';
+        } else {
+          select.innerHTML = '<option value="">یک مبحث انتخاب کنید...</option>' +
+            data.topics.map(t => `<option value="${t.id}" data-project="${t.project_id}">${escapeHtml(t.title)} (${escapeHtml(t.project_title)})</option>`).join('');
+        }
+      }
+    });
+  }
 };
 
 window.saveFlashcard = async function(e) {
   e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
+  const form = e.target;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData);
+
+  // اگر مبحث از لیست انتخاب شده، project_id را از دیتا اتریبیوت بگیر
+  const topicSelect = document.getElementById('modal-fc-topic-id');
+  if (topicSelect && topicSelect.value) {
+    const selectedOption = topicSelect.options[topicSelect.selectedIndex];
+    data.project_id = selectedOption.dataset.project;
+  }
+
   try {
     await API.post('/api/flashcards', data);
     toast('فلش‌کارت ساخته شد ✓', 'success');
-    e.target.closest('.fixed').remove();
+    form.closest('.fixed').remove();
     if (window._reloadFlashcards) window._reloadFlashcards();
+    if (data.topic_id) window.loadTopicFlashcards(data.topic_id);
   } catch (err) { toast(err.message, 'error'); }
 };
 
 // ---- Import CSV — FIX: csvText در window scope ----
 window._csvText = '';
 
-window.importCSV = function() {
+window.importCSV = function(projectId = null, topicId = null) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl modal-mobile-full">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl modal-mobile-full overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold">ایمپورت فلش‌کارت از CSV</h3>
+        <h3 class="text-lg font-bold">ایمپورت فلش‌کارت (CSV)</h3>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-4">
+        ${(!projectId || !topicId) ? `
         <div>
-          <label class="block text-sm font-medium mb-1.5">فایل CSV را انتخاب کنید</label>
-          <input type="file" accept=".csv,text/csv" id="csv-file" class="block w-full text-sm text-slate-500 file:ml-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
+          <label class="block text-sm font-medium mb-1.5">انتخاب مبحث (الزامی)</label>
+          <select id="import-fc-topic-id" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+            <option value="">در حال بارگذاری مباحث...</option>
+          </select>
+        </div>` : ''}
+
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-brand-600">۱. آپلود فایل یا چسباندن متن</label>
+          <div class="space-y-3">
+            <input type="file" accept=".csv,text/csv" id="csv-file" class="block w-full text-sm text-slate-500 file:ml-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
+            <div class="relative">
+              <textarea id="csv-text-area" rows="5" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" placeholder="front,back,hint,tags\nسوال ۱,جواب ۱,راهنما,تگ\nسوال ۲,جواب ۲,,تگ"></textarea>
+              <div class="absolute top-2 left-2 text-[10px] text-slate-400">CSV Text</div>
+            </div>
+          </div>
         </div>
-        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-slate-500">
-          <p class="font-medium mb-1">فرمت ستون‌ها:</p>
-          <code class="block bg-slate-100 dark:bg-slate-800 p-2 rounded">front,back,hint,tags</code>
-          <p class="mt-1">ستون‌های front و back الزامی هستند. hint و tags اختیاری.</p>
-          <p class="mt-1">اگه هدر ندارید، ترتیب ستون‌ها به همین شکل در نظر گرفته میشه.</p>
+
+        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-[11px] text-slate-500 leading-relaxed">
+          <p class="font-bold mb-1">راهنمای فرمت:</p>
+          <p>ستون‌های <b>front</b> و <b>back</b> الزامی هستند.</p>
+          <p>ترتیب ستون‌ها: سوال، جواب، راهنما (اختیاری)، برچسب‌ها (اختیاری)</p>
         </div>
+
         <div id="csv-preview" class="hidden"></div>
+
         <div class="flex gap-2 pt-2">
-          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl">انصراف</button>
-          <button onclick="doImportCSV()" id="csv-import-btn" disabled class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl disabled:opacity-50">ایمپورت</button>
+          <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm">انصراف</button>
+          <button onclick="doImportCSV(${projectId}, ${topicId})" id="csv-import-btn" disabled class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl disabled:opacity-50 text-sm font-bold">شروع ایمپورت</button>
         </div>
       </div>
     </div>
@@ -1122,42 +1523,124 @@ window.importCSV = function() {
 
   // reset
   window._csvText = '';
-  document.getElementById('csv-import-btn').disabled = true;
+  const importBtn = document.getElementById('csv-import-btn');
+  const textArea = document.getElementById('csv-text-area');
+  const fileInput = document.getElementById('csv-file');
 
-  document.getElementById('csv-file').addEventListener('change', async (e) => {
+  if (!projectId || !topicId) {
+    API.get('/api/topics?limit=200').then(data => {
+      const select = document.getElementById('import-fc-topic-id');
+      if (select) {
+        if (!data.topics?.length) select.innerHTML = '<option value="">ابتدا یک مبحث بسازید</option>';
+        else {
+          select.innerHTML = '<option value="">یک مبحث انتخاب کنید...</option>' +
+            data.topics.map(t => `<option value="${t.id}" data-project="${t.project_id}">${escapeHtml(t.title)}</option>`).join('');
+        }
+      }
+    });
+  }
+
+  const updatePreview = (text, source) => {
+    window._csvText = text;
+    if (!text.trim()) {
+      importBtn.disabled = true;
+      document.getElementById('csv-preview').classList.add('hidden');
+      return;
+    }
+    const lineCount = text.split('\n').filter(l => l.trim()).length;
+    document.getElementById('csv-preview').classList.remove('hidden');
+    document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/20 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> ${lineCount} ردیف داده شناسایی شد</div>`;
+    importBtn.disabled = false;
+  };
+
+  textArea.addEventListener('input', (e) => updatePreview(e.target.value, 'text'));
+
+  fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    try {
-      window._csvText = await file.text();
-      const lineCount = window._csvText.split('\n').length;
-      document.getElementById('csv-preview').classList.remove('hidden');
-      document.getElementById('csv-preview').innerHTML = `<div class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">✓ ${lineCount} ردیف از فایل <b>${escapeHtml(file.name)}</b> خوانده شد</div>`;
-      document.getElementById('csv-import-btn').disabled = false;
-    } catch (err) {
-      toast('خطا در خواندن فایل: ' + err.message, 'error');
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      textArea.value = event.target.result;
+      updatePreview(event.target.result, 'file');
+    };
+    reader.readAsText(file);
   });
 };
 
-window.doImportCSV = async function() {
-  if (!window._csvText) {
-    toast('ابتدا فایل را انتخاب کنید', 'error');
-    return;
+window.doImportCSV = async function(passedProjectId = null, passedTopicId = null) {
+  let topicId = passedTopicId;
+  let projectId = passedProjectId;
+
+  if (!topicId) {
+    const select = document.getElementById('import-fc-topic-id');
+    topicId = select?.value;
+    if (topicId) {
+      const selectedOption = select.options[select.selectedIndex];
+      projectId = selectedOption.dataset.project;
+    }
   }
+
+  if (!topicId) return toast('لطفاً یک مبحث انتخاب کنید', 'error');
+  if (!window._csvText.trim()) return toast('محتوای CSV خالی است', 'error');
+
   const btn = document.getElementById('csv-import-btn');
   if (!btn) return;
   btn.disabled = true;
   btn.innerHTML = '<span class="loader"></span> در حال ایمپورت...';
   try {
-    const res = await API.post('/api/flashcards/import-csv', { csv_text: window._csvText });
-    toast(`${res.imported} فلش‌کارت ایمپورت شد ✓`, 'success');
+    const res = await API.post('/api/flashcards/import-csv', {
+      csv_text: window._csvText,
+      topic_id: topicId,
+      project_id: projectId
+    });
+    toast(`${res.imported} فلش‌کارت با موفقیت ایمپورت شد ✓`, 'success');
     btn.closest('.fixed').remove();
     if (window._reloadFlashcards) window._reloadFlashcards();
+    if (topicId) window.loadTopicFlashcards(topicId);
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false;
     btn.innerHTML = 'ایمپورت';
   }
+};
+
+window.generateNewTopicAI = async function(e) {
+  e.preventDefault();
+  const projectId = document.getElementById('ai-project-id').value;
+  const title = document.getElementById('ai-topic-title').value.trim();
+  if (!projectId) return toast('لطفاً یک پروژه انتخاب کنید', 'error');
+  if (!title) return toast('عنوان الزامی است', 'error');
+
+  const btn = document.getElementById('ai-gen-btn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span> در حال تولید مبحث...';
+
+  try {
+    // 1. Create a draft topic first
+    const resTopic = await API.post('/api/topics', { project_id: projectId, title, status: 'draft' });
+    const topicId = resTopic.topic.id;
+
+    // 2. Generate content with AI
+    await API.post('/api/ai/generate-topic', { title, topic_id: topicId });
+
+    toast('مبحث با موفقیت تولید شد', 'success');
+    navigate(`/topics/${topicId}`);
+  } catch (err) {
+    toast(err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+};
+
+window.deleteFlashcard = async function(id, topicId = null) {
+  if (!confirm('آیا از حذف این فلش‌کارت اطمینان دارید؟')) return;
+  try {
+    await API.del(`/api/flashcards/${id}`);
+    toast('کارت حذف شد', 'info');
+    if (topicId) window.loadTopicFlashcards(topicId);
+    else if (window._reloadFlashcards) window._reloadFlashcards();
+  } catch (err) { toast(err.message, 'error'); }
 };
 
 window.resetCard = async function(id) {
@@ -1303,35 +1786,63 @@ window.answerCard = async function(button) {
 };
 
 // ---- AI page ----
-Pages.ai = function() {
+Pages.ai = async function() {
   document.getElementById('app').innerHTML = layout(`
     <h1 class="text-xl md:text-2xl font-bold mb-1 mt-8 md:mt-0">دستیار هوش مصنوعی</h1>
     <p class="text-slate-500 mb-6 text-sm">تولید محتوای آموزشی با Gemini</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <button onclick="navigate('/topics/new')" class="text-right bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
-        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-xl flex items-center justify-center mb-4">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
-        <h3 class="font-bold text-lg mb-1">تولید مبحث آموزشی</h3>
-        <p class="text-white/80 text-sm">یک مبحث کامل با ساختار استاندارد تولید کنید</p>
-      </button>
-      <a href="/settings" data-link class="text-right bg-gradient-to-br from-cyan-500 to-brand-500 text-white rounded-2xl p-5 md:p-6 hover:shadow-lg transition-all">
-        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        </div>
-        <h3 class="font-bold text-lg mb-1">ویرایش پرامپت‌ها</h3>
-        <p class="text-white/80 text-sm">پرامپت‌های AI را در پنل تنظیمات سفارشی کنید</p>
-      </a>
-    </div>
+        <h3 class="font-bold text-lg mb-2">تولید مبحث جدید</h3>
+        <form onsubmit="generateNewTopicAI(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">انتخاب پروژه</label>
+            <select id="ai-project-id" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 text-sm">
+              <option value="">در حال بارگذاری پروژه‌ها...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">عنوان مبحث</label>
+            <input type="text" id="ai-topic-title" required placeholder="مثلاً: علائم دیابت نوع ۲" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 text-sm">
+          </div>
+          <button type="submit" id="ai-gen-btn" class="w-full py-2.5 bg-gradient-to-l from-purple-600 to-pink-600 text-white font-medium rounded-lg hover:shadow-lg transition-all text-sm">تولید با هوش مصنوعی</button>
+        </form>
+      </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
-      <h2 class="font-bold mb-4">لاگ‌های اخیر AI</h2>
-      <div id="ai-logs">${loadingCards(3)}</div>
+      <div class="space-y-4">
+        <a href="/settings" data-link class="flex items-center gap-4 p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all">
+          <div class="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold">تنظیم پرامپت‌ها</h3>
+            <p class="text-xs text-slate-400">سفارشی‌سازی نحوه پاسخگویی AI</p>
+          </div>
+        </a>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <h2 class="font-bold mb-4 text-sm">آخرین فعالیت‌ها</h2>
+          <div id="ai-logs" class="space-y-3">${loadingCards(3)}</div>
+        </div>
+      </div>
     </div>
   `);
 
-  API.get('/api/ai/logs?limit=10').then(data => {
+  // Load projects
+  API.get('/api/projects').then(data => {
+    const select = document.getElementById('ai-project-id');
+    if (!select) return;
+    if (!data.projects?.length) {
+      select.innerHTML = '<option value="">ابتدا یک پروژه بسازید</option>';
+      return;
+    }
+    select.innerHTML = data.projects.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
+  }).catch(() => {});
+
+  API.get('/api/ai/logs?limit=5').then(data => {
     document.getElementById('ai-logs').innerHTML = data.logs?.length ? data.logs.map(l => `
       <div class="py-2 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between gap-3">
         <div class="flex-1 min-w-0">
@@ -1342,6 +1853,185 @@ Pages.ai = function() {
       </div>
     `).join('') : '<p class="text-sm text-slate-400 text-center py-4">هنوز لاگی ثبت نشده.</p>';
   }).catch(() => {});
+};
+
+// ---- Calendar page ----
+Pages.calendar = async function() {
+  const now = moment();
+  let currentMonth = now.format('jYYYY/jMM');
+
+  document.getElementById('app').innerHTML = layout(`
+    <div class="flex items-center justify-between mb-6 mt-8 md:mt-0">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold">تقویم و تسک‌ها</h1>
+        <p class="text-slate-500 text-sm">مدیریت برنامه‌ریزی روزانه</p>
+      </div>
+      <button onclick="openAddTaskModal()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-500/20">تسک جدید</button>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+      <div class="p-6 bg-gradient-to-br from-brand-600 to-cyan-600 text-white flex items-center justify-between">
+        <button onclick="changeMonth(-1)" class="p-2 hover:bg-white/20 rounded-full transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+        <h2 id="calendar-month-year" class="text-xl font-bold">...</h2>
+        <button onclick="changeMonth(1)" class="p-2 hover:bg-white/20 rounded-full transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+      </div>
+      <div class="grid grid-cols-7 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+        ${['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(d => `<div class="py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">${d}</div>`).join('')}
+      </div>
+      <div id="calendar-grid" class="grid grid-cols-7 gap-px bg-slate-100 dark:bg-slate-700">
+        <!-- days -->
+      </div>
+    </div>
+
+    <div id="selected-day-tasks" class="mt-8 space-y-4">
+      <!-- tasks -->
+    </div>
+  `);
+
+  async function renderCalendar(monthStr) {
+    const grid = document.getElementById('calendar-grid');
+    const header = document.getElementById('calendar-month-year');
+    grid.innerHTML = '';
+
+    const [year, month] = monthStr.split('/').map(Number);
+    header.textContent = moment(monthStr, 'jYYYY/jMM').format('jMMMM jYYYY');
+
+    // First day of month
+    const startOfMonth = moment(monthStr + '/01', 'jYYYY/jMM/jDD');
+    const daysInMonth = startOfMonth.jDaysInMonth();
+    let startDayOfWeek = startOfMonth.day(); // 0 (Sun) to 6 (Sat)
+    // Convert to Persian week (Sat is start)
+    startDayOfWeek = (startDayOfWeek + 1) % 7;
+
+    // Padding for prev month
+    for (let i = 0; i < startDayOfWeek; i++) {
+      grid.innerHTML += `<div class="bg-white dark:bg-slate-800 min-h-[100px] p-2 opacity-30"></div>`;
+    }
+
+    // Load tasks for this month
+    const gregorianMonth = startOfMonth.format('YYYY-MM');
+    const { tasks } = await API.get(`/api/tasks?month=${gregorianMonth}`);
+    const taskMap = {};
+    tasks.forEach(t => {
+      const d = moment(t.task_date, 'YYYY-MM-DD').format('jD');
+      if (!taskMap[d]) taskMap[d] = [];
+      taskMap[d].push(t);
+    });
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayStr = `${year}/${String(month).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+      const isToday = moment().format('jYYYY/jMM/jDD') === dayStr;
+      const dayTasks = taskMap[d] || [];
+
+      const dayEl = document.createElement('div');
+      dayEl.className = `bg-white dark:bg-slate-800 min-h-[100px] p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-r border-b border-slate-100 dark:border-slate-700 ${isToday ? 'ring-2 ring-inset ring-brand-500 bg-brand-50/30' : ''}`;
+      dayEl.onclick = () => showDayTasks(dayStr, dayTasks);
+      dayEl.innerHTML = `
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm font-bold ${isToday ? 'text-brand-600' : 'text-slate-600 dark:text-slate-300'}">${d}</span>
+          ${dayTasks.length ? `<span class="w-2 h-2 rounded-full bg-brand-500"></span>` : ''}
+        </div>
+        <div class="space-y-1">
+          ${dayTasks.slice(0, 2).map(t => `<div class="text-[10px] truncate px-1 rounded ${t.status === 'completed' ? 'bg-emerald-100 text-emerald-700 line-through' : 'bg-brand-100 text-brand-700'}">${escapeHtml(t.title)}</div>`).join('')}
+          ${dayTasks.length > 2 ? `<div class="text-[10px] text-slate-400 text-center">+${dayTasks.length - 2} مورد</div>` : ''}
+        </div>
+      `;
+      grid.appendChild(dayEl);
+    }
+  }
+
+  window.changeMonth = (dir) => {
+    const m = moment(currentMonth, 'jYYYY/jMM').add(dir, 'jMonth');
+    currentMonth = m.format('jYYYY/jMM');
+    renderCalendar(currentMonth);
+  };
+
+  window.showDayTasks = (jalaliDate, tasks) => {
+    const container = document.getElementById('selected-day-tasks');
+    const gregDate = moment(jalaliDate, 'jYYYY/jMM/jDD').format('YYYY-MM-DD');
+
+    container.innerHTML = `
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <h3 class="font-bold text-lg">تسک‌های ${jalaliDate}</h3>
+        <button onclick="openAddTaskModal('${gregDate}')" class="text-sm text-brand-600 font-bold">+ افزودن</button>
+      </div>
+      ${tasks.length ? tasks.map(t => `
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-between shadow-sm group">
+          <div class="flex items-center gap-3">
+            <input type="checkbox" ${t.status === 'completed' ? 'checked' : ''} onchange="toggleTask(${t.id}, this.checked)" class="w-5 h-5 rounded-lg border-slate-300 text-brand-600 focus:ring-brand-500 transition-all">
+            <div class="${t.status === 'completed' ? 'opacity-50 line-through' : ''}">
+              <p class="font-bold text-sm">${escapeHtml(t.title)}</p>
+              ${t.description ? `<p class="text-xs text-slate-500">${escapeHtml(t.description)}</p>` : ''}
+            </div>
+          </div>
+          <button onclick="deleteTask(${t.id}, '${jalaliDate}')" class="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      `).join('') : '<p class="text-center py-8 text-slate-400">هیچ تسکی برای این روز ثبت نشده است.</p>'}
+    `;
+  };
+
+  window.openAddTaskModal = (date = moment().format('YYYY-MM-DD')) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+        <h3 class="text-lg font-bold mb-4">افزودن تسک جدید</h3>
+        <form onsubmit="saveTask(event)" class="space-y-4">
+          <input type="hidden" name="task_date" value="${date}">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">عنوان</label>
+            <input type="text" name="title" required autofocus class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">توضیحات</label>
+            <textarea name="description" rows="2" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-3 bg-slate-100 dark:bg-slate-700 rounded-xl font-bold">انصراف</button>
+            <button type="submit" class="flex-1 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700">ذخیره تسک</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+
+  window.saveTask = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+      await API.post('/api/tasks', data);
+      toast('تسک اضافه شد', 'success');
+      e.target.closest('.fixed').remove();
+      renderCalendar(currentMonth);
+      const jalali = moment(data.task_date, 'YYYY-MM-DD').format('jYYYY/jMM/jDD');
+      // Update the day tasks view
+      const { tasks } = await API.get(`/api/tasks?date=${data.task_date}`);
+      showDayTasks(jalali, tasks);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.toggleTask = async (id, completed) => {
+    try {
+      await API.patch(`/api/tasks/${id}`, { status: completed ? 'completed' : 'pending' });
+      renderCalendar(currentMonth);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.deleteTask = async (id, jalaliDate) => {
+    if (!confirm('حذف شود؟')) return;
+    try {
+      await API.del(`/api/tasks/${id}`);
+      renderCalendar(currentMonth);
+      const gregDate = moment(jalaliDate, 'jYYYY/jMM/jDD').format('YYYY-MM-DD');
+      const { tasks } = await API.get(`/api/tasks?date=${gregDate}`);
+      showDayTasks(jalaliDate, tasks);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  renderCalendar(currentMonth);
 };
 
 // ---- Settings page ----
@@ -1568,4 +2258,6 @@ window.checkWebhook = async function() {
 };
 
 // ---- initial route ----
-router();
+router().then(() => {
+  applySidebarState();
+});

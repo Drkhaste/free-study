@@ -9,16 +9,19 @@
   --app-font-size: 16px;
   --app-font-family: 'Vazirmatn', system-ui, sans-serif;
   --app-line-height: 1.7;
+  --sidebar-width: 288px;
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   font-family: var(--app-font-family);
   font-size: var(--app-font-size);
   line-height: var(--app-line-height);
   -webkit-font-smoothing: antialiased;
   transition: font-size 0.2s, font-family 0.2s, line-height 0.2s;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* scrollbar */
@@ -97,23 +100,52 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* sidebar transition */
-.sidebar-link { transition: all 0.2s; }
+.sidebar-link { transition: all 0.2s; white-space: nowrap; overflow: hidden; }
 .sidebar-link.active { background: linear-gradient(135deg, #3b82f6, #06b6d4); color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
 
 /* ============================================================
-   موبایل: سایدبار در سمت راست (RTL) قرار داره
-   برای مخفی کردن باید translateX(100%) باشه (مثبت = به راست)
+   سایدبار و محتوا
    ============================================================ */
-.sidebar { transition: transform 0.3s ease; }
+.sidebar {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: var(--sidebar-width);
+}
+.sidebar.collapsed { --sidebar-width: 80px; }
+.sidebar.collapsed .p-5 h1,
+.sidebar.collapsed .p-5 p,
+.sidebar.collapsed .sidebar-link span,
+.sidebar.collapsed .border-t p { display: none; }
+.sidebar.collapsed .p-5 { justify-content: center; padding: 1.25rem 0; }
+.sidebar.collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.collapsed .p-3.border-t { padding: 0.75rem 0; justify-content: center; }
+.sidebar.collapsed .p-3.border-t .flex { justify-content: center; padding: 0; }
+.sidebar.collapsed .p-3.border-t .flex-1 { display: none; }
+
+.main-content {
+  transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: var(--sidebar-width);
+}
+
 .sidebar-overlay { transition: opacity 0.3s; opacity: 0; pointer-events: none; }
 .sidebar-overlay.show { opacity: 1; pointer-events: auto; }
 
 @media (max-width: 768px) {
-  /* سایدبار در موبایل مخفی (translateX مثبت = به راست، چون سایدبار راست‌چین است) */
-  .sidebar { transform: translateX(100%); }
-  .sidebar.open { transform: translateX(0); }
-  .main-content { margin-right: 0 !important; }
+  /* سایدبار در موبایل کاملا مخفی */
+  .sidebar {
+    transform: translateX(110%);
+    width: 288px !important;
+    visibility: hidden;
+    transition: transform 0.3s ease, visibility 0s 0.3s;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.3s ease, visibility 0s;
+  }
+  .sidebar.collapsed { transform: translateX(110%); }
+  .main-content { margin-right: 0 !important; margin-left: 0 !important; width: 100vw; }
   .mobile-menu-btn { display: flex !important; }
+  .sidebar-overlay { display: block; }
 }
 
 @media (min-width: 769px) {
@@ -152,4 +184,28 @@ body {
   .stat-card-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .page-padding { padding: 1rem !important; }
   .modal-mobile-full { width: 100% !important; max-width: 100% !important; height: 100% !important; max-height: 100% !important; border-radius: 0 !important; }
+
+  /* Improve AI page responsiveness */
+  .grid-cols-1.md\:grid-cols-2 { grid-template-columns: 1fr !important; }
+}
+
+.topic-card-container {
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+/* Highlighting */
+.hl-yellow { background-color: #fef08a; color: #1e293b; border-radius: 2px; }
+.hl-green { background-color: #bbf7d0; color: #1e293b; border-radius: 2px; }
+.hl-blue { background-color: #bfdbfe; color: #1e293b; border-radius: 2px; }
+.hl-pink { background-color: #fbcfe8; color: #1e293b; border-radius: 2px; }
+
+.dark .hl-yellow { background-color: #713f12; color: #fef08a; }
+.dark .hl-green { background-color: #064e3b; color: #bbf7d0; }
+.dark .hl-blue { background-color: #1e3a8a; color: #bfdbfe; }
+.dark .hl-pink { background-color: #831843; color: #fbcfe8; }
+
+#highlight-menu {
+  animation: scaleIn 0.15s ease-out;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }

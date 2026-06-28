@@ -32,10 +32,16 @@ flashcardRoutes.get('/', async (c) => {
   if (dueOnly) { where.push(`next_review_at <= datetime('now')`); }
   if (q) { where.push('(front LIKE ? OR back LIKE ?)'); binds.push(`%${q}%`, `%${q}%`); }
 
-  const sql = `SELECT * FROM flashcards WHERE ${where.join(' AND ')} ORDER BY next_review_at ASC, id DESC LIMIT ? OFFSET ?`;
-  const countSql = `SELECT COUNT(*) AS total FROM flashcards WHERE ${where.join(' AND ')}`;
+  const sql = `
+    SELECT f.*, t.title AS topic_title
+    FROM flashcards f
+    LEFT JOIN topics t ON t.id = f.topic_id
+    WHERE ${where.map(w => (w.includes('user_id') || w.includes('project_id') || w.includes('topic_id') || w.includes('tags') || w.includes('front') || w.includes('back')) ? 'f.'+w : w).join(' AND ')}
+    ORDER BY f.next_review_at ASC, f.id DESC LIMIT ? OFFSET ?
+  `;
+  const countSql = `SELECT COUNT(*) AS total FROM flashcards f WHERE ${where.map(w => (w.includes('user_id') || w.includes('project_id') || w.includes('topic_id') || w.includes('tags') || w.includes('front') || w.includes('back')) ? 'f.'+w : w).join(' AND ')}`;
 
-  const result = await c.env.DB.prepare(sql).bind(...binds, limit, offset).all<Flashcard>();
+  const result = await c.env.DB.prepare(sql).bind(...binds, limit, offset).all<Flashcard & { topic_title: string }>();
   const total = await c.env.DB.prepare(countSql).bind(...binds).first<{ total: number }>();
 
   return json({
@@ -75,6 +81,7 @@ flashcardRoutes.post('/', async (c) => {
   const user = c.get('user')!;
   const body = await c.req.json().catch(() => ({} as any));
   if (!body.front || !body.back) return errorResponse('صورت و پشت کارت الزامی است', 400);
+  if (!body.topic_id) return errorResponse('انتخاب مبحث الزامی است', 400);
 
   const result = await c.env.DB.prepare(
     `INSERT INTO flashcards(user_id, project_id, topic_id, front, back, hint, tags, next_review_at)
@@ -82,7 +89,7 @@ flashcardRoutes.post('/', async (c) => {
   ).bind(
     user.id,
     body.project_id || null,
-    body.topic_id || null,
+    body.topic_id,
     body.front.trim(),
     body.back.trim(),
     body.hint?.trim() || null,
@@ -124,7 +131,8 @@ flashcardRoutes.post('/import-csv', async (c) => {
   const user = c.get('user')!;
   const body = await c.req.json().catch(() => ({} as any));
   const csvText: string = body.csv_text || '';
-  if (!csvText.trim()) return errorResponse('فایل CSV خالی است', 400);
+  if (!csvText.trim()) return errorResponse('فایل CSV یا متن وارد شده خالی است', 400);
+  if (!body.topic_id) return errorResponse('انتخاب مبحث الزامی است', 400);
 
   const parsed = parseFlashcardsCSV(csvText);
   if (parsed.cards.length === 0) return errorResponse({

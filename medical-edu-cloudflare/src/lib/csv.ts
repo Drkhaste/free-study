@@ -89,14 +89,16 @@ export function parseFlashcardsCSV(text: string): CSVImportResult {
 
   for (let i = start; i < rows.length; i++) {
     const r = rows[i];
-    if (r.length < 2) {
-      errors.push(`ردیف ${i + 1}: تعداد ستون کم است`);
-      continue;
-    }
+    if (r.length < 1) continue;
+
+    // اگر فقط ۲ ستون داریم و هدر نداریم، فرض بر front و back است
     const front = (r[frontIdx] || '').trim();
     const back = (r[backIdx] || '').trim();
+
+    if (!front && !back) continue;
+
     if (!front || !back) {
-      errors.push(`ردیف ${i + 1}: محتوای خالی`);
+      errors.push(`ردیف ${i + 1}: محتوای سوال یا جواب خالی است`);
       continue;
     }
     cards.push({

@@ -74,6 +74,33 @@ function applyFontSettings() {
 }
 applyFontSettings();
 
+// ============================================================
+// Dark mode toggle
+// ============================================================
+const THEME_KEY = 'app_theme';
+function applyTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || 'light';
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+applyTheme();
+
+window.toggleTheme = function() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+
+  // Update theme icons in the header
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = isDark ?
+      '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>' :
+      '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
+  }
+};
+
 window.openFontSettings = function() {
   const current = loadFontSettings();
   const modal = document.createElement('div');
@@ -176,14 +203,27 @@ window.resetFontSettings = function() {
 };
 
 // ============================================================
-// Mobile sidebar toggle
+// Sidebar toggle (Mobile & Desktop)
 // ============================================================
+const SIDEBAR_KEY = 'app_sidebar_collapsed';
+
 window.toggleSidebar = function() {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.querySelector('.sidebar-overlay');
+  const main = document.querySelector('.main-content');
   if (!sidebar) return;
-  const isOpen = sidebar.classList.toggle('open');
-  if (overlay) overlay.classList.toggle('show', isOpen);
+
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    const isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('show', isOpen);
+  } else {
+    // Desktop: toggle collapsed state
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    if (main) main.classList.toggle('md:mr-0', isCollapsed);
+    localStorage.setItem(SIDEBAR_KEY, isCollapsed ? '1' : '0');
+  }
 };
 
 window.closeSidebar = function() {
@@ -192,6 +232,16 @@ window.closeSidebar = function() {
   sidebar?.classList.remove('open');
   overlay?.classList.remove('show');
 };
+
+function applySidebarState() {
+  const isCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
+  if (isCollapsed && window.innerWidth > 768) {
+    const sidebar = document.querySelector('.sidebar');
+    const main = document.querySelector('.main-content');
+    if (sidebar) sidebar.classList.add('collapsed');
+    if (main) main.classList.add('md:mr-0');
+  }
+}
 
 // ============================================================
 // Router
@@ -298,6 +348,11 @@ function layout(content) {
       </div>
 
       <div class="flex items-center gap-2">
+        <button id="theme-toggle-btn" onclick="window.toggleTheme()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all" title="تغییر تم">
+          ${document.documentElement.classList.contains('dark') ?
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>' :
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>'}
+        </button>
         <button onclick="window.openFontSettings()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all" title="تنظیمات متن">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </button>
@@ -840,27 +895,75 @@ Pages.topicView = async function(id) {
             <button onclick="addFlashcardModal(${t.project_id}, ${t.id})" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">➕ کارت جدید</button>
           </div>
         </div>
+        <div class="flex items-center gap-4 mb-6 border-b border-slate-100 dark:border-slate-700 overflow-x-auto whitespace-nowrap pb-1">
+          <button onclick="switchTopicTab('due', ${t.id})" id="tab-due" class="topic-tab active pb-2 text-sm font-bold border-b-2 border-brand-500 text-brand-600">مرور الان</button>
+          <button onclick="switchTopicTab('tomorrow', ${t.id})" id="tab-tomorrow" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">مرور فردا</button>
+          <button onclick="switchTopicTab('three_days', ${t.id})" id="tab-three_days" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">مرور ۳ روز بعد</button>
+          <button onclick="switchTopicTab('all', ${t.id})" id="tab-all" class="topic-tab pb-2 text-sm font-bold border-b-2 border-transparent text-slate-400">همه</button>
+        </div>
         <div id="topic-flashcards" class="space-y-6 max-w-2xl mx-auto">
           ${loadingCards(2)}
         </div>
       </div>
     `;
-    loadTopicFlashcards(t.id);
+    loadTopicFlashcards(t.id, 'due');
   } catch (err) { toast(err.message, 'error'); }
 };
 
-window.loadTopicFlashcards = async function(topicId) {
+window.switchTopicTab = function(filter, topicId) {
+  document.querySelectorAll('.topic-tab').forEach(btn => {
+    btn.classList.remove('active', 'border-brand-500', 'text-brand-600');
+    btn.classList.add('border-transparent', 'text-slate-400');
+  });
+  const active = document.getElementById(`tab-${filter}`);
+  if (active) {
+    active.classList.add('active', 'border-brand-500', 'text-brand-600');
+    active.classList.remove('border-transparent', 'text-slate-400');
+  }
+  loadTopicFlashcards(topicId, filter);
+};
+
+window.loadTopicFlashcards = async function(topicId, filter = 'all') {
   try {
     const data = await API.get(`/api/flashcards?topic_id=${topicId}&limit=100`);
     const container = document.getElementById('topic-flashcards');
-    if (!data.flashcards?.length) {
+
+    let cards = data.flashcards || [];
+    const now = new Date();
+    const tomorrowEnd = new Date();
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    tomorrowEnd.setDate(now.getDate() + 1);
+
+    if (filter === 'due') {
+      cards = cards.filter(c => new Date(c.next_review_at) <= now);
+    } else if (filter === 'tomorrow') {
+      cards = cards.filter(c => {
+        const d = new Date(c.next_review_at);
+        return d > now && d <= tomorrowEnd;
+      });
+    } else if (filter === 'three_days') {
+      const threeDaysEnd = new Date();
+      threeDaysEnd.setHours(23, 59, 59, 999);
+      threeDaysEnd.setDate(now.getDate() + 3);
+      cards = cards.filter(c => {
+        const d = new Date(c.next_review_at);
+        return d > tomorrowEnd && d <= threeDaysEnd;
+      });
+    }
+
+    if (!cards.length) {
+      let emptyMsg = 'هنوز برای این مبحث فلش‌کارتی نساخته‌اید.';
+      if (filter === 'due') emptyMsg = 'تمام کارت‌ها مرور شده‌اند! 🎉';
+      else if (filter === 'tomorrow') emptyMsg = 'کارتی برای فردا نیست.';
+      else if (filter === 'three_days') emptyMsg = 'کارتی برای ۳ روز آینده نیست.';
+
       container.innerHTML = `<div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400">
-        <p>هنوز برای این مبحث فلش‌کارتی نساخته‌اید.</p>
+        <p>${emptyMsg}</p>
       </div>`;
       return;
     }
-    container.innerHTML = data.flashcards.map(c => `
-      <div class="topic-card-container">
+    container.innerHTML = cards.map(c => `
+      <div class="topic-card-container transition-all duration-300">
         <div class="flip-card" id="card-${c.id}" onclick="this.classList.toggle('flipped')">
           <div class="flip-card-inner" style="min-height: 200px;">
             <div class="flip-card-front bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer">
@@ -876,9 +979,9 @@ window.loadTopicFlashcards = async function(topicId) {
         </div>
         <div class="flex items-center gap-2 mt-3">
           <div class="flex-1 grid grid-cols-3 gap-2">
-            <button onclick="answerTopicCard(${c.id}, 'easy', event)" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
-            <button onclick="answerTopicCard(${c.id}, 'good', event)" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
-            <button onclick="answerTopicCard(${c.id}, 'again', event)" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
+            <button onclick="answerTopicCard(${c.id}, 'easy', event, ${topicId})" class="py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors">بلد بودم (۳ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'good', event, ${topicId})" class="py-2 bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors">نسبتاً بلد بودم (۱ روز)</button>
+            <button onclick="answerTopicCard(${c.id}, 'again', event, ${topicId})" class="py-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">بلد نبودم (فوری)</button>
           </div>
           <button onclick="deleteFlashcard(${c.id}, ${topicId})" class="p-2 text-slate-300 hover:text-red-500 transition-colors" title="حذف کارت">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -889,25 +992,24 @@ window.loadTopicFlashcards = async function(topicId) {
   } catch (err) { toast(err.message, 'error'); }
 };
 
-window.answerTopicCard = async function(cardId, level, event) {
+window.answerTopicCard = async function(cardId, level, event, topicId) {
   event.stopPropagation();
   try {
-    // مپ کردن دکمه‌ها به سیستم SM-2 موجود
-    // بلد بودم (easy) -> 3 days (easy در SM-2 معمولا 4 روز است، ولی اینجا طبق درخواست ست میکنیم)
-    // نسبتا بلد بودم (good) -> 1 day
-    // بلد نبودم (again) -> immediate
-
-    // از آنجایی که SM-2 بکند پیچیده است، ما فعلاً از همان API استفاده میکنیم
-    // و یا در آینده میتوانیم یک API اختصاصی برای این حالت ۳ دکمه‌ای بسازیم.
-    // طبق درخواست کاربر: ۳ روز، ۱ روز و بلافاصله.
-
     await API.post(`/api/review/quick-answer`, { card_id: cardId, level });
     toast('ثبت شد', 'success');
 
     // انیمیشن بصری کوچک برای تایید
     const container = event.target.closest('.topic-card-container');
-    container.style.opacity = '0.5';
-    container.style.pointerEvents = 'none';
+    if (container) {
+      container.style.opacity = '0.5';
+      container.style.transform = 'scale(0.95)';
+      container.style.pointerEvents = 'none';
+    }
+
+    setTimeout(() => {
+      const activeTab = document.querySelector('.topic-tab.active')?.id.replace('tab-', '') || 'due';
+      window.loadTopicFlashcards(topicId, activeTab);
+    }, 400);
   } catch (err) { toast(err.message, 'error'); }
 };
 
@@ -1848,4 +1950,6 @@ window.checkWebhook = async function() {
 };
 
 // ---- initial route ----
-router();
+router().then(() => {
+  applySidebarState();
+});

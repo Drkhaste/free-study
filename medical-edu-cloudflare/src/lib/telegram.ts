@@ -70,9 +70,14 @@ export function markdownToTelegramHtml(md: string, maxLen = 3500): string {
 }
 
 // ساخت دکمه اینلاین برای لینک به وبلاگ
-export function buildInlineKeyboard(rows: { text: string; url: string }[][]): any {
+export function buildInlineKeyboard(rows: any[][]): any {
   return {
-    inline_keyboard: rows.map(row => row.map(b => ({ text: b.text, url: b.url }))),
+    inline_keyboard: rows.map(row => row.map(b => {
+      const btn: any = { text: b.text };
+      if (b.url) btn.url = b.url;
+      if (b.callback_data) btn.callback_data = b.callback_data;
+      return btn;
+    })),
   };
 }
 

@@ -288,12 +288,24 @@ const routes = [
 
 async function router() {
   const isWpAdmin = window.location.pathname.includes('wp-admin');
-  let path = window.location.pathname;
+  const urlParams = new URLSearchParams(window.location.search);
+  let path = '/dashboard';
 
   if (isWpAdmin) {
-    const urlParams = new URLSearchParams(window.location.search);
     const subPath = urlParams.get('med_path') || '/dashboard';
     path = subPath.startsWith('/') ? subPath : '/' + subPath;
+  } else {
+    // On frontend, also support med_path query param to avoid 404s on subroutes
+    const subPath = urlParams.get('med_path');
+    if (subPath) {
+      path = subPath.startsWith('/') ? subPath : '/' + subPath;
+    } else {
+      // Fallback to simple matching if path is just /login or /
+      const localPath = window.location.pathname;
+      if (localPath.endsWith('/login') || localPath.endsWith('/login/')) path = '/login';
+      else if (localPath === '/' || localPath === '') path = '/dashboard';
+      else path = '/dashboard'; // Default
+    }
   }
 
   // check auth first
@@ -337,21 +349,19 @@ window.addEventListener('popstate', router);
 // برای مسیرهای غیر-SPA مثل /blog و /login، full page reload میکنه
 function navigate(path) {
   const isWpAdmin = window.location.pathname.includes('wp-admin');
+  const url = new URL(window.location.href);
 
-  if (isWpAdmin) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('med_path', path);
-    window.history.pushState({}, '', url.toString());
-    router();
-  } else {
-    // مسیرهای خارجی یا وبلاگ → full reload
-    if (path.startsWith('/blog') || path.startsWith('/login') || path === '/') {
-      window.location.href = path;
-      return;
-    }
-    window.history.pushState({}, '', path);
-    router();
+  // External paths (not handled by SPA)
+  if (path.startsWith('/blog')) {
+    window.location.href = window.medEduData.siteUrl + path;
+    return;
   }
+
+  // Use query param for navigation to avoid WordPress 404s on sub-paths
+  url.searchParams.set('med_path', path);
+  window.history.pushState({}, '', url.toString());
+  router();
+
   window.closeSidebar();
   window.scrollTo(0, 0);
 }

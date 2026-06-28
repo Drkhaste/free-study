@@ -80,6 +80,10 @@ class MedicalEdu {
     }
 
     public function login_shortcode() {
+        if (is_user_logged_in() && current_user_can('manage_options')) {
+            $dash_url = get_option('med_edu_dashboard_url', get_site_url());
+            return "<script>window.location.href = '$dash_url';</script>";
+        }
         $this->enqueue_assets();
         ob_start();
         include MED_EDU_PATH . 'templates/login-form.php';
@@ -88,13 +92,17 @@ class MedicalEdu {
 
     public function dashboard_shortcode() {
         if (!is_user_logged_in() || !current_user_can('manage_options')) {
-            return '<p>لطفاً ابتدا وارد شوید.</p>';
+            $login_url = wp_login_url(get_permalink());
+            return "<div class='medical-edu-app-root' style='padding: 2rem; text-align: center;'>
+                <p>لطفاً برای دسترسی به داشبورد ابتدا وارد شوید.</p>
+                <a href='$login_url' class='px-4 py-2 bg-brand-600 text-white rounded-xl' style='display:inline-block; background:#3b82f6; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; margin-top:10px;'>ورود به حساب</a>
+            </div>";
         }
         $this->enqueue_assets();
-        return '<div id="app" class="medical-edu-app-root"></div>'; // UI expects id="app"
+        return '<div id="app" class="medical-edu-app-root"></div>';
     }
 
-    private function enqueue_assets() {
+    public function enqueue_assets() {
         // Fonts
         wp_enqueue_style('vazirmatn-font', 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css', [], '33.003');
         wp_enqueue_style('ibm-plex-arabic-font', 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;700&display=swap', [], '1.0.0');
@@ -109,8 +117,8 @@ class MedicalEdu {
         wp_enqueue_script('tailwind-cdn', 'https://cdn.tailwindcss.com', [], '3.3.0');
 
         // Plugin Assets
-        wp_enqueue_style('medical-edu-css', MED_EDU_URL . 'assets/app.css', [], '1.0.1');
-        wp_enqueue_script('medical-edu-js', MED_EDU_URL . 'assets/app.js', ['jquery', 'easymde-js', 'moment-js'], '1.0.1', true);
+        wp_enqueue_style('medical-edu-css', MED_EDU_URL . 'assets/app.css', [], '1.0.2');
+        wp_enqueue_script('medical-edu-js', MED_EDU_URL . 'assets/app.js', ['jquery', 'easymde-js', 'moment-js'], '1.0.2', true);
 
         // Pass data to JS
         wp_localize_script('medical-edu-js', 'medEduData', [

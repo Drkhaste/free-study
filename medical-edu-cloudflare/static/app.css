@@ -175,3 +175,19 @@ body {
   margin-bottom: 1.5rem;
   width: 100%;
 }
+
+/* Highlighting */
+.hl-yellow { background-color: #fef08a; color: #1e293b; border-radius: 2px; }
+.hl-green { background-color: #bbf7d0; color: #1e293b; border-radius: 2px; }
+.hl-blue { background-color: #bfdbfe; color: #1e293b; border-radius: 2px; }
+.hl-pink { background-color: #fbcfe8; color: #1e293b; border-radius: 2px; }
+
+.dark .hl-yellow { background-color: #713f12; color: #fef08a; }
+.dark .hl-green { background-color: #064e3b; color: #bbf7d0; }
+.dark .hl-blue { background-color: #1e3a8a; color: #bfdbfe; }
+.dark .hl-pink { background-color: #831843; color: #fbcfe8; }
+
+#highlight-menu {
+  animation: scaleIn 0.15s ease-out;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}

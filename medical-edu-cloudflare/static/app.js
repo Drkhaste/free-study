@@ -259,6 +259,7 @@ const routes = [
   { pattern: /^\/review$/, handler: () => Pages.review() },
   { pattern: /^\/ai$/, handler: () => Pages.ai() },
   { pattern: /^\/settings$/, handler: () => Pages.settings() },
+  { pattern: /^\/calendar$/, handler: () => Pages.calendar() },
 ];
 
 async function router() {
@@ -384,6 +385,7 @@ function layout(content) {
           ${sidebarLink('/flashcards', 'فلش‌کارت‌ها', 'M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M7 3v4h10V3M7 3h10')}
           ${sidebarLink('/review', 'مرور امروز', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z')}
           ${sidebarLink('/ai', 'دستیار هوش مصنوعی', 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
+          ${sidebarLink('/calendar', 'تقویم و تسک‌ها', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z')}
           ${sidebarLink('/blog', 'وبلاگ', 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253')}
           ${isAdmin ? sidebarLink('/settings', 'تنظیمات', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z') : ''}
         </nav>
@@ -522,7 +524,10 @@ Pages.dashboard = async function() {
       <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-bold">پروژه‌های اخیر</h2>
-          <a href="/projects" data-link class="text-sm text-brand-600 hover:underline">همه</a>
+          <div class="flex gap-3">
+            <button onclick="quickCreatePost()" class="text-xs text-brand-600 font-bold hover:bg-brand-50 px-2 py-1 rounded-lg transition-colors">پست وبلاگ جدید</button>
+            <a href="/projects" data-link class="text-sm text-brand-600 hover:underline">همه</a>
+          </div>
         </div>
         <div id="dash-projects" class="space-y-2">${loadingCards(3)}</div>
       </div>
@@ -882,7 +887,7 @@ Pages.topicView = async function(id) {
         <span>${t.word_count} کلمه</span>
         ${t.tags ? `<span>•</span><span>${escapeHtml(t.tags)}</span>` : ''}
       </div>
-      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700 mb-8">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
+      <div class="markdown-preview bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-6 lg:p-8 border border-slate-100 dark:border-slate-700 mb-8 relative" id="content-to-highlight">${t.content_html || '<p class="text-slate-400 text-center py-8">هنوز محتوایی ثبت نشده. روی «ویرایش» بزنید.</p>'}</div>
 
       <div class="mt-12">
         <div class="flex items-center justify-between mb-6">
@@ -907,8 +912,88 @@ Pages.topicView = async function(id) {
       </div>
     `;
     loadTopicFlashcards(t.id, 'due');
+    initHighlighter(id);
   } catch (err) { toast(err.message, 'error'); }
 };
+
+window.initHighlighter = function(topicId) {
+  const contentArea = document.getElementById('content-to-highlight');
+  if (!contentArea) return;
+
+  contentArea.addEventListener('mouseup', (e) => {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (!text) {
+      removeHighlightMenu();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    showHighlightMenu(rect.left + (rect.width / 2), rect.top + window.scrollY, topicId);
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#highlight-menu') && !e.target.closest('#content-to-highlight')) {
+      removeHighlightMenu();
+    }
+  });
+};
+
+function showHighlightMenu(x, y, topicId) {
+  removeHighlightMenu();
+  const menu = document.createElement('div');
+  menu.id = 'highlight-menu';
+  menu.className = 'fixed z-[100] bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 flex gap-2 -translate-x-1/2 -translate-y-full mb-3';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  const colors = [
+    { name: 'yellow', hex: '#fef08a' },
+    { name: 'green', hex: '#bbf7d0' },
+    { name: 'blue', hex: '#bfdbfe' },
+    { name: 'pink', hex: '#fbcfe8' }
+  ];
+
+  colors.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = `w-8 h-8 rounded-full border-2 border-white dark:border-slate-700 hover:scale-110 transition-transform`;
+    btn.style.backgroundColor = c.hex;
+    btn.onclick = () => applyHighlight(c.name, topicId);
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+}
+
+function removeHighlightMenu() {
+  document.getElementById('highlight-menu')?.remove();
+}
+
+async function applyHighlight(colorClass, topicId) {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  const mark = document.createElement('mark');
+  mark.className = `hl-${colorClass}`;
+
+  try {
+    range.surroundContents(mark);
+    removeHighlightMenu();
+    selection.removeAllRanges();
+
+    // Save the new HTML
+    const contentArea = document.getElementById('content-to-highlight');
+    await API.patch(`/api/topics/${topicId}/highlight`, {
+      html_content: contentArea.innerHTML
+    });
+    toast('هایلایت ذخیره شد', 'success');
+  } catch (e) {
+    toast('خطا: متن انتخابی شامل تگ‌های HTML است. لطفاً قطعه کوچکتری را انتخاب کنید.', 'warning');
+  }
+}
 
 window.switchTopicTab = function(filter, topicId) {
   document.querySelectorAll('.topic-tab').forEach(btn => {
@@ -1110,10 +1195,40 @@ Pages.topicEdit = async function(id) {
   });
 };
 
+window.quickCreatePost = async function() {
+  // Find or create 'Blog' project
+  try {
+    const { projects } = await API.get('/api/projects');
+    let blogProj = projects.find(p => p.title === 'وبلاگ');
+    if (!blogProj) {
+      blogProj = (await API.post('/api/projects', { title: 'وبلاگ', description: 'پست‌های مستقیم وبلاگ', color: '#ec4899' })).project;
+    }
+    const title = prompt('عنوان پست جدید:');
+    if (!title) return;
+
+    const res = await API.post('/api/topics', { title, project_id: blogProj.id, status: 'draft' });
+    navigate(`/topics/${res.topic.id}/edit`);
+  } catch (err) { toast(err.message, 'error'); }
+};
+
 window.saveTopic = async function(id, projectId) {
   const title = document.getElementById('topic-title').value.trim();
   if (!title) return toast('عنوان الزامی است', 'error');
-  if (!projectId && id === null) return toast('ابتدا یک پروژه بسازید', 'error');
+
+  // Auto-handling for project-less topics (e.g. from direct blog post creation)
+  let finalProjectId = projectId;
+  if (!finalProjectId && id === null) {
+    try {
+      const { projects } = await API.get('/api/projects');
+      let blogProj = projects.find(p => p.title === 'وبلاگ');
+      if (!blogProj) {
+        blogProj = (await API.post('/api/projects', { title: 'وبلاگ', description: 'پست‌های مستقیم وبلاگ', color: '#ec4899' })).project;
+      }
+      finalProjectId = blogProj.id;
+    } catch (e) {
+      return toast('ابتدا یک پروژه بسازید', 'error');
+    }
+  }
 
   const data = {
     title,
@@ -1125,7 +1240,7 @@ window.saveTopic = async function(id, projectId) {
   try {
     let res;
     if (id) res = await API.put(`/api/topics/${id}`, data);
-    else res = await API.post('/api/topics', { ...data, project_id: projectId });
+    else res = await API.post('/api/topics', { ...data, project_id: finalProjectId });
     toast('ذخیره شد ✓', 'success');
     navigate(`/topics/${res.topic.id}`);
   } catch (err) { toast(err.message, 'error'); }
@@ -1724,6 +1839,185 @@ Pages.ai = async function() {
       </div>
     `).join('') : '<p class="text-sm text-slate-400 text-center py-4">هنوز لاگی ثبت نشده.</p>';
   }).catch(() => {});
+};
+
+// ---- Calendar page ----
+Pages.calendar = async function() {
+  const now = moment();
+  let currentMonth = now.format('jYYYY/jMM');
+
+  document.getElementById('app').innerHTML = layout(`
+    <div class="flex items-center justify-between mb-6 mt-8 md:mt-0">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold">تقویم و تسک‌ها</h1>
+        <p class="text-slate-500 text-sm">مدیریت برنامه‌ریزی روزانه</p>
+      </div>
+      <button onclick="openAddTaskModal()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-500/20">تسک جدید</button>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+      <div class="p-6 bg-gradient-to-br from-brand-600 to-cyan-600 text-white flex items-center justify-between">
+        <button onclick="changeMonth(-1)" class="p-2 hover:bg-white/20 rounded-full transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+        <h2 id="calendar-month-year" class="text-xl font-bold">...</h2>
+        <button onclick="changeMonth(1)" class="p-2 hover:bg-white/20 rounded-full transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+      </div>
+      <div class="grid grid-cols-7 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+        ${['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(d => `<div class="py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">${d}</div>`).join('')}
+      </div>
+      <div id="calendar-grid" class="grid grid-cols-7 gap-px bg-slate-100 dark:bg-slate-700">
+        <!-- days -->
+      </div>
+    </div>
+
+    <div id="selected-day-tasks" class="mt-8 space-y-4">
+      <!-- tasks -->
+    </div>
+  `);
+
+  async function renderCalendar(monthStr) {
+    const grid = document.getElementById('calendar-grid');
+    const header = document.getElementById('calendar-month-year');
+    grid.innerHTML = '';
+
+    const [year, month] = monthStr.split('/').map(Number);
+    header.textContent = moment(monthStr, 'jYYYY/jMM').format('jMMMM jYYYY');
+
+    // First day of month
+    const startOfMonth = moment(monthStr + '/01', 'jYYYY/jMM/jDD');
+    const daysInMonth = startOfMonth.jDaysInMonth();
+    let startDayOfWeek = startOfMonth.day(); // 0 (Sun) to 6 (Sat)
+    // Convert to Persian week (Sat is start)
+    startDayOfWeek = (startDayOfWeek + 1) % 7;
+
+    // Padding for prev month
+    for (let i = 0; i < startDayOfWeek; i++) {
+      grid.innerHTML += `<div class="bg-white dark:bg-slate-800 min-h-[100px] p-2 opacity-30"></div>`;
+    }
+
+    // Load tasks for this month
+    const gregorianMonth = startOfMonth.format('YYYY-MM');
+    const { tasks } = await API.get(`/api/tasks?month=${gregorianMonth}`);
+    const taskMap = {};
+    tasks.forEach(t => {
+      const d = moment(t.task_date, 'YYYY-MM-DD').format('jD');
+      if (!taskMap[d]) taskMap[d] = [];
+      taskMap[d].push(t);
+    });
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayStr = `${year}/${String(month).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+      const isToday = moment().format('jYYYY/jMM/jDD') === dayStr;
+      const dayTasks = taskMap[d] || [];
+
+      const dayEl = document.createElement('div');
+      dayEl.className = `bg-white dark:bg-slate-800 min-h-[100px] p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-r border-b border-slate-100 dark:border-slate-700 ${isToday ? 'ring-2 ring-inset ring-brand-500 bg-brand-50/30' : ''}`;
+      dayEl.onclick = () => showDayTasks(dayStr, dayTasks);
+      dayEl.innerHTML = `
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm font-bold ${isToday ? 'text-brand-600' : 'text-slate-600 dark:text-slate-300'}">${d}</span>
+          ${dayTasks.length ? `<span class="w-2 h-2 rounded-full bg-brand-500"></span>` : ''}
+        </div>
+        <div class="space-y-1">
+          ${dayTasks.slice(0, 2).map(t => `<div class="text-[10px] truncate px-1 rounded ${t.status === 'completed' ? 'bg-emerald-100 text-emerald-700 line-through' : 'bg-brand-100 text-brand-700'}">${escapeHtml(t.title)}</div>`).join('')}
+          ${dayTasks.length > 2 ? `<div class="text-[10px] text-slate-400 text-center">+${dayTasks.length - 2} مورد</div>` : ''}
+        </div>
+      `;
+      grid.appendChild(dayEl);
+    }
+  }
+
+  window.changeMonth = (dir) => {
+    const m = moment(currentMonth, 'jYYYY/jMM').add(dir, 'jMonth');
+    currentMonth = m.format('jYYYY/jMM');
+    renderCalendar(currentMonth);
+  };
+
+  window.showDayTasks = (jalaliDate, tasks) => {
+    const container = document.getElementById('selected-day-tasks');
+    const gregDate = moment(jalaliDate, 'jYYYY/jMM/jDD').format('YYYY-MM-DD');
+
+    container.innerHTML = `
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <h3 class="font-bold text-lg">تسک‌های ${jalaliDate}</h3>
+        <button onclick="openAddTaskModal('${gregDate}')" class="text-sm text-brand-600 font-bold">+ افزودن</button>
+      </div>
+      ${tasks.length ? tasks.map(t => `
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-between shadow-sm group">
+          <div class="flex items-center gap-3">
+            <input type="checkbox" ${t.status === 'completed' ? 'checked' : ''} onchange="toggleTask(${t.id}, this.checked)" class="w-5 h-5 rounded-lg border-slate-300 text-brand-600 focus:ring-brand-500 transition-all">
+            <div class="${t.status === 'completed' ? 'opacity-50 line-through' : ''}">
+              <p class="font-bold text-sm">${escapeHtml(t.title)}</p>
+              ${t.description ? `<p class="text-xs text-slate-500">${escapeHtml(t.description)}</p>` : ''}
+            </div>
+          </div>
+          <button onclick="deleteTask(${t.id}, '${jalaliDate}')" class="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      `).join('') : '<p class="text-center py-8 text-slate-400">هیچ تسکی برای این روز ثبت نشده است.</p>'}
+    `;
+  };
+
+  window.openAddTaskModal = (date = moment().format('YYYY-MM-DD')) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 scale-in';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+        <h3 class="text-lg font-bold mb-4">افزودن تسک جدید</h3>
+        <form onsubmit="saveTask(event)" class="space-y-4">
+          <input type="hidden" name="task_date" value="${date}">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">عنوان</label>
+            <input type="text" name="title" required autofocus class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">توضیحات</label>
+            <textarea name="description" rows="2" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-3 bg-slate-100 dark:bg-slate-700 rounded-xl font-bold">انصراف</button>
+            <button type="submit" class="flex-1 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700">ذخیره تسک</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+
+  window.saveTask = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+      await API.post('/api/tasks', data);
+      toast('تسک اضافه شد', 'success');
+      e.target.closest('.fixed').remove();
+      renderCalendar(currentMonth);
+      const jalali = moment(data.task_date, 'YYYY-MM-DD').format('jYYYY/jMM/jDD');
+      // Update the day tasks view
+      const { tasks } = await API.get(`/api/tasks?date=${data.task_date}`);
+      showDayTasks(jalali, tasks);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.toggleTask = async (id, completed) => {
+    try {
+      await API.patch(`/api/tasks/${id}`, { status: completed ? 'completed' : 'pending' });
+      renderCalendar(currentMonth);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  window.deleteTask = async (id, jalaliDate) => {
+    if (!confirm('حذف شود؟')) return;
+    try {
+      await API.del(`/api/tasks/${id}`);
+      renderCalendar(currentMonth);
+      const gregDate = moment(jalaliDate, 'jYYYY/jMM/jDD').format('YYYY-MM-DD');
+      const { tasks } = await API.get(`/api/tasks?date=${gregDate}`);
+      showDayTasks(jalaliDate, tasks);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  renderCalendar(currentMonth);
 };
 
 // ---- Settings page ----

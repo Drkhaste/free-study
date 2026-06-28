@@ -119,6 +119,7 @@ pageRoutes.get('/flashcards', async (c) => c.html(await renderShell(c.env, { tit
 pageRoutes.get('/review', async (c) => c.html(await renderShell(c.env, { title: 'مرور', page: 'app' })));
 pageRoutes.get('/settings', async (c) => c.html(await renderShell(c.env, { title: 'تنظیمات', page: 'app' })));
 pageRoutes.get('/ai', async (c) => c.html(await renderShell(c.env, { title: 'هوش مصنوعی', page: 'app' })));
+pageRoutes.get('/calendar', async (c) => c.html(await renderShell(c.env, { title: 'تقویم و تسک‌ها', page: 'app', extraHead: '<script src="https://cdn.jsdelivr.net/npm/jalali-moment/dist/jalali-moment.browser.js"></script>' })));
 
 // ====== Blog pages (server-rendered for SEO) ======
 pageRoutes.get('/blog', async (c) => {

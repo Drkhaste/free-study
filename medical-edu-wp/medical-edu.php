@@ -67,7 +67,15 @@ class MedicalEdu {
     }
 
     public function admin_dashboard_page() {
-        echo '<div id="app" class="medical-edu-app-root"></div>'; // UI expects id="app"
+        ?>
+        <style>
+            #adminmenumain, #wpadminbar, #wpfooter { display: none !important; }
+            #wpcontent, #wpbody-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            html.wp-toolbar { padding-top: 0 !important; }
+            .medical-edu-app-root { min-height: 100vh; width: 100%; }
+        </style>
+        <div id="app" class="medical-edu-app-root"></div>
+        <?php
         $this->enqueue_assets();
     }
 
@@ -86,6 +94,10 @@ class MedicalEdu {
     }
 
     private function enqueue_assets() {
+        // Fonts
+        wp_enqueue_style('vazirmatn-font', 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css', [], '33.003');
+        wp_enqueue_style('ibm-plex-arabic-font', 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;700&display=swap', [], '1.0.0');
+
         // External Libraries
         wp_enqueue_style('easymde-css', 'https://unpkg.com/easymde/dist/easymde.min.css', [], '2.18.0');
         wp_enqueue_script('easymde-js', 'https://unpkg.com/easymde/dist/easymde.min.js', [], '2.18.0', true);

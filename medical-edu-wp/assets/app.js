@@ -34,8 +34,10 @@ const API = {
     const res = await fetch(fullPath, opts);
 
     if (res.status === 401 && !path.includes('/auth/') && !path.includes('/blog')) {
-      // In WP, we might want to redirect to the custom login page
-      // window.location.href = '/login';
+      const isWpAdmin = window.location.pathname.includes('wp-admin');
+      if (!isWpAdmin) {
+        window.location.href = '/login';
+      }
       return null;
     }
 
@@ -99,16 +101,22 @@ applyFontSettings();
 const THEME_KEY = 'app_theme';
 function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'light';
+  const root = document.querySelector('.medical-edu-app-root') || document.documentElement;
   if (theme === 'dark') {
-    document.documentElement.classList.add('dark');
+    root.classList.add('dark');
+    if (root !== document.documentElement) document.documentElement.classList.add('dark');
   } else {
-    document.documentElement.classList.remove('dark');
+    root.classList.remove('dark');
+    if (root !== document.documentElement) document.documentElement.classList.remove('dark');
   }
 }
-applyTheme();
+// Run theme application after DOM load to ensure root element exists
+setTimeout(applyTheme, 100);
 
 window.toggleTheme = function() {
-  const isDark = document.documentElement.classList.toggle('dark');
+  const root = document.querySelector('.medical-edu-app-root') || document.documentElement;
+  const isDark = root.classList.toggle('dark');
+  if (root !== document.documentElement) document.documentElement.classList.toggle('dark', isDark);
   localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
 
   // Update theme icons in the header
@@ -303,7 +311,12 @@ async function router() {
   if (state.user && (path === '/login' || path === '/wp-login.php')) {
     // If we are in wp-admin, don't redirect away
     if (!window.location.pathname.includes('wp-admin')) {
-        window.location.href = '/dashboard';
+        let redirectUrl = '/dashboard';
+        try {
+            const settings = await API.get('/api/settings');
+            if (settings.settings.dashboard_url) redirectUrl = settings.settings.dashboard_url;
+        } catch(e) {}
+        window.location.href = redirectUrl;
         return;
     }
   }
@@ -532,7 +545,15 @@ window.handleAuth = async function(e, tab) {
   try {
     const res = await API.post(`/api/auth/${tab}`, data);
     toast(tab === 'login' ? 'خوش آمدید! 👋' : 'ثبت نام موفق! 🎉', 'success');
-    setTimeout(() => window.location.href = '/dashboard', 500);
+
+    // Redirect logic
+    let redirectUrl = '/dashboard';
+    try {
+        const settings = await API.get('/api/settings');
+        if (settings.settings.dashboard_url) redirectUrl = settings.settings.dashboard_url;
+    } catch(err) {}
+
+    setTimeout(() => window.location.href = redirectUrl, 500);
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false;
@@ -2070,6 +2091,24 @@ Pages.settings = async function() {
 
     <div class="space-y-6 max-w-2xl">
       <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
+        <h2 class="font-bold mb-4 text-brand-600">📖 راهنمای راه‌اندازی سریع</h2>
+        <div class="space-y-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+          <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p class="font-bold mb-2 text-slate-800 dark:text-white">۱. تنظیم هوش مصنوعی (Gemini)</p>
+            <p>به <a href="https://aistudio.google.com/apikey" target="_blank" class="text-brand-600 underline">Google AI Studio</a> بروید و یک API Key رایگان بسازید. سپس آن را در بخش تنظیمات Gemini وارد کنید.</p>
+          </div>
+          <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p class="font-bold mb-2 text-slate-800 dark:text-white">۲. اتصال به تلگرام</p>
+            <p>از طریق <a href="https://t.me/botfather" target="_blank" class="text-brand-600 underline">@BotFather</a> یک ربات بسازید. توکن ربات و آیدی کانال خود را در بخش تنظیمات تلگرام وارد کنید. حتماً ربات را در کانال خود ادمین کنید.</p>
+          </div>
+          <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p class="font-bold mb-2 text-slate-800 dark:text-white">۳. نمایش در سایت (Frontend)</p>
+            <p>یک برگه جدید در وردپرس بسازید و شرت‌کد <code>[medical_edu_dashboard]</code> را در آن قرار دهید. آیدی یا آدرس آن برگه را در بخش «تنظیمات داشبورد» ذخیره کنید تا ریدایرکت‌ها به درستی انجام شود.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
         <h2 class="font-bold mb-4">اطلاعات سایت</h2>
         <div class="space-y-4">
           <div>
@@ -2113,6 +2152,17 @@ Pages.settings = async function() {
           <div>
             <label class="block text-sm font-medium mb-1.5">پرامپت خلاصه‌سازی</label>
             <textarea id="set-prompt-summarize" rows="4" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm font-mono" dir="rtl"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-700">
+        <h2 class="font-bold mb-4">تنظیمات داشبورد</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">آدرس صفحه داشبورد (Frontend)</label>
+            <input type="text" id="set-dash-url" placeholder="https://example.com/dashboard" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 font-mono text-sm" dir="ltr">
+            <p class="text-xs text-slate-400 mt-1">آدرس صفحه‌ای که شرت‌کد داشبورد را در آن قرار داده‌اید.</p>
           </div>
         </div>
       </div>
@@ -2185,6 +2235,7 @@ Pages.settings = async function() {
     document.getElementById('set-tg-token').dataset.has = s.settings.has_telegram_token ? '1' : '';
     document.getElementById('set-tg-channel').value = s.settings.telegram_channel_id || '';
     document.getElementById('set-tg-hour').value = s.settings.telegram_daily_hour || '9';
+    document.getElementById('set-dash-url').value = s.settings.dashboard_url || '';
     document.getElementById('set-prompt-system').value = s.settings.system_prompt || '';
     document.getElementById('set-prompt-topic').value = s.settings.prompt_generate_topic || '';
     document.getElementById('set-prompt-improve').value = s.settings.prompt_improve || '';
@@ -2203,6 +2254,7 @@ window.saveSettings = async function() {
     site_description: document.getElementById('set-desc').value,
     telegram_channel_id: document.getElementById('set-tg-channel').value,
     telegram_daily_hour: document.getElementById('set-tg-hour').value,
+    dashboard_url: document.getElementById('set-dash-url').value,
     system_prompt: document.getElementById('set-prompt-system').value,
     prompt_generate_topic: document.getElementById('set-prompt-topic').value,
     prompt_improve: document.getElementById('set-prompt-improve').value,
